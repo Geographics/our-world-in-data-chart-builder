@@ -1981,6 +1981,13 @@ export function createTagGraph(
     return recursivelySetChildren(tagGraph) as TagGraphRoot
 }
 
+export const getAllTopicsInArea = (area: TagGraphNode): TagGraphNode[] => {
+    return [
+        ...area.children,
+        ...area.children.flatMap((child) => getAllTopicsInArea(child)),
+    ]
+}
+
 export function formatInlineList(
     array: unknown[],
     connector: "and" | "or" = "and"
