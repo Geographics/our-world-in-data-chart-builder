@@ -530,7 +530,7 @@ async function getTombstoneAttachments(
     }
 }
 
-getPlainRouteWithROTransaction(
+getPlainRouteNonIdempotentWithRWTransaction(
     mockSiteRouter,
     "/deleted/:tombstoneSlug",
     async (req, res, trx) => {
@@ -544,6 +544,15 @@ getPlainRouteWithROTransaction(
         }
         const attachments = await getTombstoneAttachments(trx, tombstone)
         res.status(404).send(await renderGdocTombstone(tombstone, attachments))
+    }
+)
+
+getPlainRouteWithROTransaction(
+    mockSiteRouter,
+    "/headerMenu.json",
+    async (req, res, trx) => {
+        const headerMenu = await db.generateSiteNav(trx)
+        res.send(headerMenu)
     }
 )
 
