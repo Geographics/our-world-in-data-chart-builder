@@ -16,11 +16,8 @@ import {
 } from "@ourworldindata/utils"
 import { observable, computed, action } from "mobx"
 import { observer } from "mobx-react"
-import {
-    HorizontalCategoricalColorLegend,
-    HorizontalColorLegendManager,
-    HorizontalNumericColorLegend,
-} from "../horizontalColorLegend/HorizontalColorLegends"
+import { HorizontalCategoricalColorLegend } from "../horizontalColorLegend/HorizontalCategoricalColorLegend"
+import { HorizontalNumericColorLegend } from "../horizontalColorLegend/HorizontalNumericColorLegend"
 import { MapProjectionGeos } from "./MapProjections"
 import { GeoPathRoundingContext } from "./GeoPathRoundingContext"
 import { select } from "d3-selection"
@@ -71,6 +68,8 @@ import {
 import { NoDataModal } from "../noDataModal/NoDataModal"
 import { ColorScaleConfig } from "../color/ColorScaleConfig"
 import { SelectionArray } from "../selection/SelectionArray"
+import { HorizontalCategoricalColorLegendComponent } from "../horizontalColorLegend/HorizontalCategoricalColorLegendComponent"
+import { HorizontalNumericColorLegendComponent } from "../horizontalColorLegend/HorizontalNumericColorLegendComponent"
 
 const DEFAULT_STROKE_COLOR = "#333"
 const CHOROPLETH_MAP_CLASSNAME = "ChoroplethMap"
@@ -163,7 +162,7 @@ const renderFeaturesFor = (
 @observer
 export class MapChart
     extends React.Component<MapChartProps>
-    implements ChartInterface, HorizontalColorLegendManager, ColorScaleManager
+    implements ChartInterface, ColorScaleManager
 {
     @observable focusEntity?: MapEntity
     @observable focusBracket?: MapBracket
@@ -525,50 +524,96 @@ export class MapChart
         return this.categoryLegendHeight + this.numericLegendHeight + 10
     }
 
+    @computed private get hasCategoryLegend(): boolean {
+        return this.categoricalLegendData.length > 1
+    }
+
+    @computed private get hasNumericLegend(): boolean {
+        return this.numericLegendData.length > 1
+    }
+
     @computed get numericLegendHeight(): number {
-        return this.numericLegend ? this.numericLegend.height : 0
+        // can't use numericLegend due to a circular dependency
+        return this.hasNumericLegend
+            ? HorizontalNumericColorLegend.height({
+                  fontSize: this.fontSize,
+                  x: this.legendX,
+                  align: this.legendAlign,
+                  maxWidth: this.legendMaxWidth,
+                  numericBins: this.numericLegendData,
+                  equalSizeBins: this.equalSizeBins,
+              })
+            : 0
     }
 
     @computed get categoryLegendHeight(): number {
         return this.categoryLegend ? this.categoryLegend.height + 5 : 0
     }
 
-    @computed get categoryLegend():
+    @computed private get categoryLegend():
         | HorizontalCategoricalColorLegend
         | undefined {
-        return this.categoricalLegendData.length > 1
-            ? new HorizontalCategoricalColorLegend({ manager: this })
+        return this.hasCategoryLegend
+            ? new HorizontalCategoricalColorLegend({
+                  fontSize: this.fontSize,
+                  align: this.legendAlign,
+                  maxWidth: this.legendMaxWidth,
+                  categoricalBins: this.categoricalLegendData,
+              })
             : undefined
     }
 
-    @computed get numericLegend(): HorizontalNumericColorLegend | undefined {
-        return this.numericLegendData.length > 1
-            ? new HorizontalNumericColorLegend({ manager: this })
+    @computed private get numericLegend():
+        | HorizontalNumericColorLegend
+        | undefined {
+        return this.hasNumericLegend
+            ? new HorizontalNumericColorLegend({
+                  fontSize: this.fontSize,
+                  x: this.legendX,
+                  align: this.legendAlign,
+                  y: this.numericLegendY,
+                  maxWidth: this.legendMaxWidth,
+                  numericBins: this.numericLegendData,
+                  equalSizeBins: this.equalSizeBins,
+              })
             : undefined
+    }
+
+    @computed get categoryLegendNumLines(): number {
+        // can't use categoryLegend due to a circular dependency
+        return this.hasCategoryLegend
+            ? HorizontalCategoricalColorLegend.numLines({
+                  fontSize: this.fontSize,
+                  maxWidth: this.legendMaxWidth,
+                  categoricalBins: this.categoricalLegendData,
+              })
+            : 0
     }
 
     @computed get categoryLegendY(): number {
-        const { categoryLegend, bounds, categoryLegendHeight } = this
+        const { hasCategoryLegend, bounds, categoryLegendHeight } = this
 
-        if (categoryLegend) return bounds.bottom - categoryLegendHeight
+        if (hasCategoryLegend) return bounds.bottom - categoryLegendHeight
         return 0
     }
 
     @computed get legendAlign(): HorizontalAlign {
-        if (this.numericLegend) return HorizontalAlign.center
-        const { numLines = 0 } = this.categoryLegend ?? {}
-        return numLines > 1 ? HorizontalAlign.left : HorizontalAlign.center
+        if (this.hasNumericLegend) return HorizontalAlign.center
+
+        return this.categoryLegendNumLines > 1
+            ? HorizontalAlign.left
+            : HorizontalAlign.center
     }
 
     @computed get numericLegendY(): number {
         const {
-            numericLegend,
+            hasNumericLegend,
             numericLegendHeight,
             bounds,
             categoryLegendHeight,
         } = this
 
-        if (numericLegend)
+        if (hasNumericLegend)
             return (
                 bounds.bottom - categoryLegendHeight - numericLegendHeight - 4
             )
@@ -588,15 +633,32 @@ export class MapChart
     }
 
     renderMapLegend(): React.ReactElement {
-        const { numericLegend, categoryLegend } = this
+        const onMouseLeave = this.manager.isStatic
+            ? undefined
+            : this.onLegendMouseLeave
+        const onMouseOver = this.manager.isStatic
+            ? undefined
+            : this.onLegendMouseOver
 
         return (
             <>
-                {numericLegend && (
-                    <HorizontalNumericColorLegend manager={this} />
+                {this.numericLegend && (
+                    <HorizontalNumericColorLegendComponent
+                        legend={this.numericLegend}
+                        focusBin={this.numericFocusBracket}
+                        onMouseLeave={onMouseLeave}
+                        onMouseOver={onMouseOver}
+                    />
                 )}
-                {categoryLegend && (
-                    <HorizontalCategoricalColorLegend manager={this} />
+                {this.categoryLegend && (
+                    <HorizontalCategoricalColorLegendComponent
+                        legend={this.categoryLegend}
+                        x={this.legendX}
+                        y={this.categoryLegendY}
+                        swatchStrokeColor={this.categoricalBinStroke}
+                        onMouseLeave={onMouseLeave}
+                        onMouseOver={onMouseOver}
+                    />
                 )}
             </>
         )

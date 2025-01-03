@@ -52,9 +52,10 @@ import {
 import { makeClipPath } from "../chart/ChartUtils"
 import { ColorScaleConfigDefaults } from "../color/ColorScaleConfig"
 import { ColumnTypeMap, CoreColumn } from "@ourworldindata/core-table"
-import { HorizontalCategoricalColorLegend } from "../horizontalColorLegend/HorizontalColorLegends"
 import { CategoricalBin, ColorScaleBin } from "../color/ColorScaleBin"
 import { AxisConfig } from "../axis/AxisConfig.js"
+import { HorizontalCategoricalColorLegend } from "../horizontalColorLegend/HorizontalCategoricalColorLegend"
+import { HorizontalCategoricalColorLegendComponent } from "../horizontalColorLegend/HorizontalCategoricalColorLegendComponent"
 
 interface StackedBarSegmentProps extends React.SVGAttributes<SVGGElement> {
     id: string
@@ -307,13 +308,9 @@ export class StackedBarChart
 
     @computed get sidebarWidth(): number {
         if (!this.manager.showLegend) return 0
-        const {
-            sidebarMinWidth,
-            sidebarMaxWidth,
-            verticalColorLegend: legendDimensions,
-        } = this
+        const { sidebarMinWidth, sidebarMaxWidth, verticalColorLegend } = this
         return Math.max(
-            Math.min(legendDimensions.width, sidebarMaxWidth),
+            Math.min(verticalColorLegend.width, sidebarMaxWidth),
             sidebarMinWidth
         )
     }
@@ -330,7 +327,12 @@ export class StackedBarChart
 
     @computed
     private get horizontalColorLegend(): HorizontalCategoricalColorLegend {
-        return new HorizontalCategoricalColorLegend({ manager: this })
+        return new HorizontalCategoricalColorLegend({
+            fontSize: this.fontSize,
+            align: this.legendAlign,
+            maxWidth: this.legendWidth,
+            categoricalBins: this.categoricalLegendData,
+        })
     }
 
     @computed get formatColumn(): CoreColumn {
@@ -484,16 +486,26 @@ export class StackedBarChart
             : this.bounds.right - this.sidebarWidth
         const y = this.bounds.top
 
+        const onMouseOver = !isStatic ? this.onLegendMouseOver : undefined
+        const onMouseLeave = !isStatic ? this.onLegendMouseLeave : undefined
+
         return showHorizontalLegend ? (
-            <HorizontalCategoricalColorLegend manager={this} />
+            <HorizontalCategoricalColorLegendComponent
+                legend={this.horizontalColorLegend}
+                x={this.legendX}
+                y={this.categoryLegendY}
+                activeColors={this.activeColors}
+                onMouseOver={onMouseOver}
+                onMouseLeave={onMouseLeave}
+            />
         ) : (
             <VerticalColorLegendComponent
                 legend={this.verticalColorLegend}
                 x={x}
                 y={y}
                 activeColors={this.activeColors}
-                onMouseOver={!isStatic ? this.onLegendMouseOver : undefined}
-                onMouseLeave={!isStatic ? this.onLegendMouseLeave : undefined}
+                onMouseOver={onMouseOver}
+                onMouseLeave={onMouseLeave}
             />
         )
     }

@@ -293,16 +293,14 @@ describe("externalLegendBins", () => {
         const chart = new LineChart({
             manager: { ...baseManager, showLegend: true },
         })
-        expect(chart["externalLegend"]).toBeUndefined()
+        expect(chart.externalLegend).toBeUndefined()
     })
 
     it("exposes externalLegendBins when legend is hidden", () => {
         const chart = new LineChart({
             manager: { ...baseManager, showLegend: false },
         })
-        expect(chart["externalLegend"]?.categoricalLegendData?.length).toEqual(
-            2
-        )
+        expect(chart.externalLegend?.categoricalBins?.length).toEqual(2)
     })
 })
 

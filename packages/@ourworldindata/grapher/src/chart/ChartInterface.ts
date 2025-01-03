@@ -7,7 +7,9 @@ import {
 } from "@ourworldindata/types"
 import { ColorScale } from "../color/ColorScale"
 import { HorizontalAxis, VerticalAxis } from "../axis/Axis"
-import { HorizontalColorLegendManager } from "../horizontalColorLegend/HorizontalColorLegends"
+import { HorizontalCategoricalColorLegendProps } from "../horizontalColorLegend/HorizontalCategoricalColorLegend"
+import { HorizontalNumericColorLegendProps } from "../horizontalColorLegend/HorizontalNumericColorLegend"
+
 // The idea of this interface is to try and start reusing more code across our Chart classes and make it easier
 // for a dev to work on a chart type they haven't touched before if they've worked with another that implements
 // this interface.
@@ -18,6 +20,10 @@ export interface ChartSeries {
 }
 
 export type ChartTableTransformer = (inputTable: OwidTable) => OwidTable
+
+export type ExternalLegendProps =
+    Partial<HorizontalCategoricalColorLegendProps> &
+        Partial<HorizontalNumericColorLegendProps>
 
 export interface ChartInterface {
     failMessage: string // We require every chart have some fail message(s) to show to the user if something went wrong
@@ -43,7 +49,7 @@ export interface ChartInterface {
      * The legend that has been hidden from the chart plot (using `manager.hideLegend`).
      * Used to create a global legend for faceted charts.
      */
-    externalLegend?: HorizontalColorLegendManager
+    externalLegend?: ExternalLegendProps
 
     /**
      * Which facet strategies the chart type finds reasonable in its current setting, if any.

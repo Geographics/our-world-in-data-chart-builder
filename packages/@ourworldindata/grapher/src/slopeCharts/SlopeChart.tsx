@@ -37,7 +37,7 @@ import {
     InteractionState,
     HorizontalAlign,
 } from "@ourworldindata/types"
-import { ChartInterface } from "../chart/ChartInterface"
+import { ChartInterface, ExternalLegendProps } from "../chart/ChartInterface"
 import { ChartManager } from "../chart/ChartManager"
 import { scaleLinear, ScaleLinear } from "d3-scale"
 import { select } from "d3-selection"
@@ -86,7 +86,6 @@ import {
 } from "../lineCharts/LineChartHelpers"
 import { SelectionArray } from "../selection/SelectionArray"
 import { Halo } from "@ourworldindata/components"
-import { HorizontalColorLegendManager } from "../horizontalColorLegend/HorizontalColorLegends"
 import { CategoricalBin } from "../color/ColorScaleBin"
 import {
     OWID_NON_FOCUSED_GRAY,
@@ -591,7 +590,7 @@ export class SlopeChart
             : 0
     }
 
-    @computed get externalLegend(): HorizontalColorLegendManager | undefined {
+    @computed get externalLegend(): ExternalLegendProps | undefined {
         if (!this.manager.showLegend) {
             const categoricalLegendData = this.series.map(
                 (series, index) =>
@@ -602,7 +601,7 @@ export class SlopeChart
                         color: series.color,
                     })
             )
-            return { categoricalLegendData }
+            return { categoricalBins: categoricalLegendData }
         }
         return undefined
     }

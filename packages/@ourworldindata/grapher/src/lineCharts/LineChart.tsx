@@ -63,7 +63,7 @@ import {
 } from "../core/GrapherConstants"
 import { ColorSchemes } from "../color/ColorSchemes"
 import { AxisConfig, AxisManager } from "../axis/AxisConfig"
-import { ChartInterface } from "../chart/ChartInterface"
+import { ChartInterface, ExternalLegendProps } from "../chart/ChartInterface"
 import {
     LinesProps,
     LineChartSeries,
@@ -104,10 +104,6 @@ import { MultiColorPolyline } from "../scatterCharts/MultiColorPolyline"
 import { CategoricalColorAssigner } from "../color/CategoricalColorAssigner"
 import { darkenColorForLine } from "../color/ColorUtils"
 import {
-    HorizontalColorLegendManager,
-    HorizontalNumericColorLegend,
-} from "../horizontalColorLegend/HorizontalColorLegends"
-import {
     AnnotationsMap,
     getAnnotationsForSeries,
     getAnnotationsMap,
@@ -115,6 +111,8 @@ import {
     getSeriesName,
 } from "./LineChartHelpers"
 import { FocusArray } from "../focus/FocusArray.js"
+import { HorizontalNumericColorLegend } from "../horizontalColorLegend/HorizontalNumericColorLegend"
+import { HorizontalNumericColorLegendComponent } from "../horizontalColorLegend/HorizontalNumericColorLegendComponent"
 
 const LINE_CHART_CLASS_NAME = "LineChart"
 
@@ -344,11 +342,7 @@ export class LineChart
         bounds?: Bounds
         manager: LineChartManager
     }>
-    implements
-        ChartInterface,
-        AxisManager,
-        ColorScaleManager,
-        HorizontalColorLegendManager
+    implements ChartInterface, AxisManager, ColorScaleManager
 {
     base: React.RefObject<SVGGElement> = React.createRef()
 
@@ -498,7 +492,7 @@ export class LineChart
 
     @computed private get boundsWithoutColorLegend(): Bounds {
         return this.bounds.padTop(
-            this.hasColorLegend ? this.legendHeight + LEGEND_PADDING : 0
+            this.hasColorLegend ? this.colorLegendHeight + LEGEND_PADDING : 0
         )
     }
 
@@ -930,8 +924,15 @@ export class LineChart
     }
 
     renderColorLegend(): React.ReactElement | void {
-        if (this.hasColorLegend)
-            return <HorizontalNumericColorLegend manager={this} />
+        if (this.colorLegend)
+            return (
+                <HorizontalNumericColorLegendComponent
+                    legend={this.colorLegend}
+                    binStrokeColor={this.numericBinStroke}
+                    binStrokeWidth={this.numericBinStrokeWidth}
+                    textColor={this.legendTextColor}
+                />
+            )
     }
 
     /**
@@ -1157,9 +1158,20 @@ export class LineChart
         return this.manager.backgroundColor ?? GRAPHER_BACKGROUND_DEFAULT
     }
 
-    @computed get numericLegend(): HorizontalNumericColorLegend | undefined {
+    @computed get colorLegend(): HorizontalNumericColorLegend | undefined {
         return this.hasColorScale && this.manager.showLegend
-            ? new HorizontalNumericColorLegend({ manager: this })
+            ? new HorizontalNumericColorLegend({
+                  fontSize: this.fontSize,
+                  x: this.legendX,
+                  align: this.legendAlign,
+                  maxWidth: this.legendMaxWidth,
+                  numericBins: this.numericLegendData,
+                  binSize: this.numericBinSize,
+                  equalSizeBins: this.equalSizeBins,
+                  title: this.legendTitle,
+                  y: this.numericLegendY,
+                  tickSize: this.legendTickSize,
+              })
             : undefined
     }
 
@@ -1173,8 +1185,8 @@ export class LineChart
             : undefined
     }
 
-    @computed get legendHeight(): number {
-        return this.numericLegend?.height ?? 0
+    @computed get colorLegendHeight(): number {
+        return this.colorLegend?.height ?? 0
     }
 
     // End of color legend props
@@ -1467,7 +1479,7 @@ export class LineChart
         return this.dualAxis.horizontalAxis
     }
 
-    @computed get externalLegend(): HorizontalColorLegendManager | undefined {
+    @computed get externalLegend(): ExternalLegendProps | undefined {
         if (!this.manager.showLegend) {
             const numericLegendData = this.hasColorScale
                 ? this.numericLegendData
@@ -1484,15 +1496,12 @@ export class LineChart
                           })
                   )
             return {
-                legendTitle: this.legendTitle,
-                legendTextColor: this.legendTextColor,
-                legendTickSize: this.legendTickSize,
+                categoricalBins: categoricalLegendData,
+                numericBins: numericLegendData,
+                title: this.legendTitle,
+                tickSize: this.legendTickSize,
                 equalSizeBins: this.equalSizeBins,
-                numericBinSize: this.numericBinSize,
-                numericBinStroke: this.numericBinStroke,
-                numericBinStrokeWidth: this.numericBinStrokeWidth,
-                numericLegendData,
-                categoricalLegendData,
+                binSize: this.numericBinSize,
             }
         }
         return undefined

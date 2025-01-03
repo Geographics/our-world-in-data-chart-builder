@@ -41,7 +41,7 @@ import { HorizontalAxisZeroLine } from "../axis/AxisViews"
 import { NoDataModal } from "../noDataModal/NoDataModal"
 import { AxisConfig, AxisManager } from "../axis/AxisConfig"
 import { ColorSchemes } from "../color/ColorSchemes"
-import { ChartInterface } from "../chart/ChartInterface"
+import { ChartInterface, ExternalLegendProps } from "../chart/ChartInterface"
 import {
     BACKGROUND_COLOR,
     DiscreteBarChartManager,
@@ -70,12 +70,10 @@ import {
     OWID_NO_DATA_GRAY,
 } from "../color/ColorConstants"
 import { CategoricalBin, ColorScaleBin } from "../color/ColorScaleBin"
-import {
-    HorizontalColorLegendManager,
-    HorizontalNumericColorLegend,
-} from "../horizontalColorLegend/HorizontalColorLegends"
 import { BaseType, Selection } from "d3"
 import { TextWrap } from "@ourworldindata/components"
+import { HorizontalNumericColorLegend } from "../horizontalColorLegend/HorizontalNumericColorLegend"
+import { HorizontalNumericColorLegendComponent } from "../horizontalColorLegend/HorizontalNumericColorLegendComponent"
 
 const labelToTextPadding = 10
 const labelToBarPadding = 5
@@ -170,7 +168,7 @@ export class DiscreteBarChart
 
     @computed private get boundsWithoutColorLegend(): Bounds {
         return this.bounds.padTop(
-            this.showColorLegend ? this.legendHeight + LEGEND_PADDING : 0
+            this.numericLegend ? this.legendHeight + LEGEND_PADDING : 0
         )
     }
 
@@ -504,8 +502,12 @@ export class DiscreteBarChart
         return (
             <>
                 {this.renderDefs()}
-                {this.showColorLegend && (
-                    <HorizontalNumericColorLegend manager={this} />
+                {this.numericLegend && (
+                    <HorizontalNumericColorLegendComponent
+                        legend={this.numericLegend}
+                        binStrokeColor={this.numericBinStroke}
+                        textColor={this.legendTextColor}
+                    />
                 )}
                 {!this.isLogScale && (
                     <HorizontalAxisZeroLine
@@ -823,10 +825,10 @@ export class DiscreteBarChart
         return DEFAULT_PROJECTED_DATA_COLOR_IN_LEGEND
     }
 
-    @computed get externalLegend(): HorizontalColorLegendManager | undefined {
+    @computed get externalLegend(): ExternalLegendProps | undefined {
         if (this.hasColorLegend) {
             return {
-                numericLegendData: this.numericLegendData,
+                numericBins: this.numericLegendData,
             }
         }
         return undefined
@@ -843,9 +845,22 @@ export class DiscreteBarChart
     legendTextColor = "#555"
     legendTickSize = 1
 
-    @computed get numericLegend(): HorizontalNumericColorLegend | undefined {
-        return this.hasColorScale && this.manager.showLegend
-            ? new HorizontalNumericColorLegend({ manager: this })
+    @computed private get numericLegend():
+        | HorizontalNumericColorLegend
+        | undefined {
+        return this.showColorLegend
+            ? new HorizontalNumericColorLegend({
+                  fontSize: this.fontSize,
+                  x: this.legendX,
+                  align: this.legendAlign,
+                  maxWidth: this.legendMaxWidth,
+                  numericBins: this.numericLegendData,
+                  binSize: this.numericBinSize,
+                  equalSizeBins: this.equalSizeBins,
+                  title: this.legendTitle,
+                  y: this.numericLegendY,
+                  tickSize: this.legendTickSize,
+              })
             : undefined
     }
 

@@ -44,7 +44,7 @@ import {
 } from "../axis/AxisViews"
 import { NoDataModal } from "../noDataModal/NoDataModal"
 import { AxisConfig } from "../axis/AxisConfig"
-import { ChartInterface } from "../chart/ChartInterface"
+import { ChartInterface, ExternalLegendProps } from "../chart/ChartInterface"
 import { OwidTable, CoreColumn } from "@ourworldindata/core-table"
 import {
     autoDetectYColumnSlugs,
@@ -66,10 +66,6 @@ import {
 } from "../tooltip/Tooltip"
 import { StackedPoint, StackedSeries } from "./StackedConstants"
 import { ColorSchemes } from "../color/ColorSchemes"
-import {
-    HorizontalCategoricalColorLegend,
-    HorizontalColorLegendManager,
-} from "../horizontalColorLegend/HorizontalColorLegends"
 import { CategoricalBin, ColorScaleBin } from "../color/ColorScaleBin"
 import { isDarkColor } from "../color/ColorUtils"
 import { HorizontalAxis } from "../axis/Axis"
@@ -80,6 +76,8 @@ import { easeQuadOut } from "d3-ease"
 import { bind } from "decko"
 import { CategoricalColorAssigner } from "../color/CategoricalColorAssigner.js"
 import { TextWrap } from "@ourworldindata/components"
+import { HorizontalCategoricalColorLegend } from "../horizontalColorLegend/HorizontalCategoricalColorLegend"
+import { HorizontalCategoricalColorLegendComponent } from "../horizontalColorLegend/HorizontalCategoricalColorLegendComponent"
 
 // if an entity name exceeds this width, we use the short name instead (if available)
 const SOFT_MAX_LABEL_WIDTH = 90
@@ -131,7 +129,7 @@ export class StackedDiscreteBarChart
         manager: StackedDiscreteBarChartManager
         containerElement?: HTMLDivElement
     }>
-    implements ChartInterface, HorizontalColorLegendManager
+    implements ChartInterface
 {
     base: React.RefObject<SVGGElement> = React.createRef()
 
@@ -525,10 +523,10 @@ export class StackedDiscreteBarChart
         return this.showLegend ? this.legendBins : []
     }
 
-    @computed get externalLegend(): HorizontalColorLegendManager | undefined {
+    @computed get externalLegend(): ExternalLegendProps | undefined {
         if (!this.showLegend) {
             return {
-                categoricalLegendData: this.legendBins,
+                categoricalBins: this.legendBins,
             }
         }
         return undefined
@@ -546,8 +544,13 @@ export class StackedDiscreteBarChart
         this.focusSeriesName = undefined
     }
 
-    @computed private get legend(): HorizontalCategoricalColorLegend {
-        return new HorizontalCategoricalColorLegend({ manager: this })
+    @computed get legend(): HorizontalCategoricalColorLegend {
+        return new HorizontalCategoricalColorLegend({
+            fontSize: this.fontSize,
+            align: this.legendAlign,
+            maxWidth: this.legendWidth,
+            categoricalBins: this.categoricalLegendData,
+        })
     }
 
     @computed private get formatColumn(): CoreColumn {
@@ -724,7 +727,23 @@ export class StackedDiscreteBarChart
 
     renderLegend(): React.ReactElement | void {
         if (!this.showLegend) return
-        return <HorizontalCategoricalColorLegend manager={this} />
+
+        const onMouseLeave = this.manager.isStatic
+            ? undefined
+            : this.onLegendMouseLeave
+        const onMouseOver = this.manager.isStatic
+            ? undefined
+            : this.onLegendMouseOver
+
+        return (
+            <HorizontalCategoricalColorLegendComponent
+                legend={this.legend}
+                x={this.legendX}
+                y={this.categoryLegendY}
+                onMouseLeave={onMouseLeave}
+                onMouseOver={onMouseOver}
+            />
+        )
     }
 
     renderStatic(): React.ReactElement {

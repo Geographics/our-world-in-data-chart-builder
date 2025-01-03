@@ -58,10 +58,6 @@ import {
     makeTooltipRoundingNotice,
     makeTooltipToleranceNotice,
 } from "../tooltip/Tooltip"
-import {
-    HorizontalCategoricalColorLegend,
-    HorizontalColorLegendManager,
-} from "../horizontalColorLegend/HorizontalColorLegends"
 import { CategoricalBin, ColorScaleBin } from "../color/ColorScaleBin"
 import { DualAxis, HorizontalAxis, VerticalAxis } from "../axis/Axis"
 import { ColorScale, ColorScaleManager } from "../color/ColorScale"
@@ -88,6 +84,8 @@ import {
     LabelCandidateWithElement,
     MarimekkoBarProps,
 } from "./MarimekkoChartConstants"
+import { HorizontalCategoricalColorLegend } from "../horizontalColorLegend/HorizontalCategoricalColorLegend"
+import { HorizontalCategoricalColorLegendComponent } from "../horizontalColorLegend/HorizontalCategoricalColorLegendComponent"
 
 const MARKER_MARGIN: number = 4
 const MARKER_AREA_HEIGHT: number = 25
@@ -262,7 +260,7 @@ export class MarimekkoChart
         manager: MarimekkoChartManager
         containerElement?: HTMLDivElement
     }>
-    implements ChartInterface, HorizontalColorLegendManager, ColorScaleManager
+    implements ChartInterface, ColorScaleManager
 {
     base: React.RefObject<SVGGElement> = React.createRef()
 
@@ -898,7 +896,12 @@ export class MarimekkoChart
     }
 
     @computed private get legend(): HorizontalCategoricalColorLegend {
-        return new HorizontalCategoricalColorLegend({ manager: this })
+        return new HorizontalCategoricalColorLegend({
+            fontSize: this.fontSize,
+            align: this.legendAlign,
+            maxWidth: this.legendWidth,
+            categoricalBins: this.categoricalLegendData,
+        })
     }
 
     @computed private get formatColumn(): CoreColumn {
@@ -1027,6 +1030,13 @@ export class MarimekkoChart
 
         const footer = excludeUndefined([toleranceNotice, roundingNotice])
 
+        const onLegendMouseLeave = this.manager.isStatic
+            ? undefined
+            : this.onLegendMouseLeave
+        const onLegendMouseOver = this.manager.isStatic
+            ? undefined
+            : this.onLegendMouseOver
+
         return (
             <g
                 ref={this.base}
@@ -1053,7 +1063,14 @@ export class MarimekkoChart
                     }
                     detailsMarker={manager.detailsMarkerInSvg}
                 />
-                <HorizontalCategoricalColorLegend manager={this} />
+                <HorizontalCategoricalColorLegendComponent
+                    legend={this.legend}
+                    x={this.legendX}
+                    y={this.categoryLegendY}
+                    opacity={this.legendOpacity}
+                    onMouseLeave={onLegendMouseLeave}
+                    onMouseOver={onLegendMouseOver}
+                />
                 {this.renderBars()}
                 {target && (
                     <Tooltip

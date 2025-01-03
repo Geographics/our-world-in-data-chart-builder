@@ -1,11 +1,11 @@
 #! /usr/bin/env jest
 
 import { CategoricalBin, NumericBin } from "../color/ColorScaleBin"
+import { HorizontalCategoricalColorLegend } from "./HorizontalCategoricalColorLegend"
 import {
-    HorizontalCategoricalColorLegend,
     HorizontalNumericColorLegend,
     PositionedBin,
-} from "./HorizontalColorLegends"
+} from "./HorizontalNumericColorLegend"
 
 describe(HorizontalNumericColorLegend, () => {
     it("can create one", () => {
@@ -21,55 +21,53 @@ describe(HorizontalNumericColorLegend, () => {
         })
 
         const legend = new HorizontalNumericColorLegend({
-            manager: { numericLegendData: [bin] },
+            numericBins: [bin],
         })
         expect(legend.height).toBeGreaterThan(0)
     })
 
     it("adds margins between categorical but not numeric bins", () => {
         const legend = new HorizontalNumericColorLegend({
-            manager: {
-                numericLegendData: [
-                    new CategoricalBin({
-                        index: 0,
-                        value: "a",
-                        label: "a",
-                        color: "#fff",
-                    }),
-                    new CategoricalBin({
-                        index: 0,
-                        value: "b",
-                        label: "b",
-                        color: "#fff",
-                    }),
-                    new NumericBin({
-                        isFirst: true,
-                        isOpenLeft: false,
-                        isOpenRight: false,
-                        min: 0,
-                        max: 1,
-                        displayMin: "0",
-                        displayMax: "1",
-                        color: "#fff",
-                    }),
-                    new NumericBin({
-                        isFirst: false,
-                        isOpenLeft: false,
-                        isOpenRight: false,
-                        min: 1,
-                        max: 2,
-                        displayMin: "1",
-                        displayMax: "2",
-                        color: "#fff",
-                    }),
-                    new CategoricalBin({
-                        index: 0,
-                        value: "c",
-                        label: "c",
-                        color: "#fff",
-                    }),
-                ],
-            },
+            numericBins: [
+                new CategoricalBin({
+                    index: 0,
+                    value: "a",
+                    label: "a",
+                    color: "#fff",
+                }),
+                new CategoricalBin({
+                    index: 0,
+                    value: "b",
+                    label: "b",
+                    color: "#fff",
+                }),
+                new NumericBin({
+                    isFirst: true,
+                    isOpenLeft: false,
+                    isOpenRight: false,
+                    min: 0,
+                    max: 1,
+                    displayMin: "0",
+                    displayMax: "1",
+                    color: "#fff",
+                }),
+                new NumericBin({
+                    isFirst: false,
+                    isOpenLeft: false,
+                    isOpenRight: false,
+                    min: 1,
+                    max: 2,
+                    displayMin: "1",
+                    displayMax: "2",
+                    color: "#fff",
+                }),
+                new CategoricalBin({
+                    index: 0,
+                    value: "c",
+                    label: "c",
+                    color: "#fff",
+                }),
+            ],
         })
 
         const margin = legend["itemMargin"]
@@ -100,7 +98,7 @@ describe(HorizontalCategoricalColorLegend, () => {
         })
 
         const legend = new HorizontalCategoricalColorLegend({
-            manager: { categoricalLegendData: [bin] },
+            categoricalBins: [bin],
         })
         expect(legend.height).toBeGreaterThan(0)
     })
