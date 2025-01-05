@@ -4,12 +4,18 @@ import {
     GrapherInterface,
     DbRawChartConfig,
 } from "@ourworldindata/types"
-import { Grapher, GrapherProgrammaticInterface } from "@ourworldindata/grapher"
+import {
+    fetchInputTableForConfig,
+    Grapher,
+    GrapherProgrammaticInterface,
+    GrapherState,
+} from "@ourworldindata/grapher"
 import { MultipleOwidVariableDataDimensionsMap } from "@ourworldindata/utils"
 import path from "path"
 import * as db from "../db/db.js"
 import { grapherSlugToExportFileKey } from "./GrapherBakingUtils.js"
 import { BAKED_GRAPHER_URL } from "../settings/clientSettings.js"
+import { DATA_API_URL } from "../settings/serverSettings.js"
 
 interface SvgFilenameFragments {
     slug: string
@@ -72,13 +78,15 @@ export function initGrapherForSvgExport(
     queryStr: string = ""
 ) {
     const grapher = new Grapher({
-        bakedGrapherURL: BAKED_GRAPHER_URL,
-        ...jsonConfig,
-        manuallyProvideData: true,
-        queryStr,
+        grapherState: new GrapherState({
+            bakedGrapherURL: BAKED_GRAPHER_URL,
+            ...jsonConfig,
+            manuallyProvideData: true,
+            queryStr,
+        }),
     })
-    grapher.isExportingToSvgOrPng = true
-    grapher.shouldIncludeDetailsInStaticExport = false
+    grapher.grapherState.isExportingToSvgOrPng = true
+    grapher.grapherState.shouldIncludeDetailsInStaticExport = false
     return grapher
 }
 
@@ -110,12 +118,19 @@ export function buildSvgOutFilepath(
 }
 
 export async function grapherToSVG(
-    jsonConfig: GrapherInterface,
-    vardata: MultipleOwidVariableDataDimensionsMap
+    jsonConfig: GrapherInterface
+    // vardata: MultipleOwidVariableDataDimensionsMap
 ): Promise<string> {
-    const grapher = new Grapher({ ...jsonConfig, manuallyProvideData: true })
-    grapher.isExportingToSvgOrPng = true
-    grapher.shouldIncludeDetailsInStaticExport = false
+    const grapher = new Grapher({
+        grapherState: new GrapherState({
+            ...jsonConfig,
+            manuallyProvideData: true,
+        }),
+    })
+    grapher.grapherState.isExportingToSvgOrPng = true
+    grapher.grapherState.shouldIncludeDetailsInStaticExport = false
     // grapher.receiveOwidData(vardata)
+    const inputTable = await fetchInputTableForConfig(jsonConfig, DATA_API_URL)
+    if (inputTable) grapher.grapherState.inputTable = inputTable
     return grapher.staticSVG
 }
