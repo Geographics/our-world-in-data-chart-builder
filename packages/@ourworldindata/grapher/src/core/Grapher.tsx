@@ -1,4 +1,4 @@
-import React from "react"
+import React, { RefObject } from "react"
 import ReactDOMServer from "react-dom/server.js"
 import * as Sentry from "@sentry/react"
 import {
@@ -3342,8 +3342,8 @@ export class Grapher extends React.Component<GrapherProps> {
     static renderGrapherIntoContainer(
         config: GrapherProgrammaticInterface,
         containerNode: Element
-    ): void {
-        // const grapherInstanceRef = React.createRef<Grapher>()
+    ): RefObject<Grapher> {
+        const grapherInstanceRef = React.createRef<Grapher>()
 
         const setBoundsFromContainerAndRender = (
             entries: ResizeObserverEntry[]
@@ -3366,9 +3366,8 @@ export class Grapher extends React.Component<GrapherProps> {
             ReactDOM.render(
                 <Sentry.ErrorBoundary>
                     <Grapher
-                        /* ref={grapherInstanceRef} */ grapherState={
-                            grapherState
-                        }
+                        ref={grapherInstanceRef}
+                        grapherState={grapherState}
                     />
                 </Sentry.ErrorBoundary>,
                 containerNode
@@ -3393,6 +3392,7 @@ export class Grapher extends React.Component<GrapherProps> {
                 "ResizeObserver not available; grapher will not be able to render"
             )
         }
+        return grapherInstanceRef
     }
 
     static renderSingleGrapherOnGrapherPage(

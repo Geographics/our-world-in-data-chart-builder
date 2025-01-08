@@ -3,6 +3,7 @@ import {
     getVariableDataRoute,
     getVariableMetadataRoute,
     GRAPHER_PAGE_BODY_CLASS,
+    LoadingIndicator,
 } from "@ourworldindata/grapher"
 import {
     PostReference,
@@ -76,7 +77,7 @@ export const GrapherPage = (props: {
 window.Grapher.renderSingleGrapherOnGrapherPage(jsonConfig)`
 
     const variableIds = uniq(grapher.dimensions!.map((d) => d.variableId))
-
+    // TODO: 2025-01-09 Daniel - this isn't loading data yet - probably something about the multiembedder data fetcher expecting absolute urls
     return (
         <Html>
             <Head
@@ -121,6 +122,7 @@ window.Grapher.renderSingleGrapherOnGrapherPage(jsonConfig)`
                         adminBaseUrl={ADMIN_BASE_URL}
                         bakedGrapherURL={BAKED_GRAPHER_URL}
                     />
+
                     <div className={HIDE_IF_JS_ENABLED_CLASSNAME} id="fallback">
                         {grapher.slug && (
                             <GrapherImage
