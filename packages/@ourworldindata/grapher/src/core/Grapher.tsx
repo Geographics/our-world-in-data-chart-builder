@@ -1,4 +1,4 @@
-import React from "react"
+import React, { RefObject } from "react"
 import ReactDOMServer from "react-dom/server.js"
 import {
     observable,
@@ -3347,8 +3347,8 @@ export class Grapher extends React.Component<GrapherProps> {
     static renderGrapherIntoContainer(
         config: GrapherProgrammaticInterface,
         containerNode: Element
-    ): void {
-        // const grapherInstanceRef = React.createRef<Grapher>()
+    ): RefObject<Grapher> {
+        const grapherInstanceRef = React.createRef<Grapher>()
 
         let ErrorBoundary = React.Fragment as React.ComponentType // use React.Fragment as a sort of default error boundary if Bugsnag is not available
         if (Bugsnag && (Bugsnag as any)._client) {
@@ -3378,9 +3378,8 @@ export class Grapher extends React.Component<GrapherProps> {
             ReactDOM.render(
                 <ErrorBoundary>
                     <Grapher
-                        /* ref={grapherInstanceRef} */ grapherState={
-                            grapherState
-                        }
+                        ref={grapherInstanceRef}
+                        grapherState={grapherState}
                     />
                 </ErrorBoundary>,
                 containerNode
@@ -3406,6 +3405,7 @@ export class Grapher extends React.Component<GrapherProps> {
             )
             Bugsnag?.notify("ResizeObserver not available")
         }
+        return grapherInstanceRef
     }
 
     static renderSingleGrapherOnGrapherPage(
