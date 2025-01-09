@@ -632,8 +632,6 @@ interface StaticFooterProps extends FooterProps {
 
 @observer
 export class StaticFooter extends Footer<StaticFooterProps> {
-    verticalPadding = 2
-
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     componentDidMount(): void {}
     // eslint-disable-next-line @typescript-eslint/no-empty-function

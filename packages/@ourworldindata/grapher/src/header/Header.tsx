@@ -28,6 +28,8 @@ interface HeaderProps {
 export class Header<
     Props extends HeaderProps = HeaderProps,
 > extends React.Component<Props> {
+    protected verticalPadding = 4
+
     @computed protected get manager(): HeaderManager {
         return this.props.manager
     }
@@ -152,7 +154,7 @@ export class Header<
     }
 
     @computed get subtitleMarginTop(): number {
-        let padding = 4
+        let padding = this.verticalPadding
 
         // make sure the subtitle doesn't overlap with the logo
         if (
@@ -288,6 +290,8 @@ interface StaticHeaderProps extends HeaderProps {
 
 @observer
 export class StaticHeader extends Header<StaticHeaderProps> {
+    protected verticalPadding = 6
+
     @computed get titleLineHeight(): number {
         return this.manager.isStaticAndSmall ? 1.1 : 1.2
     }
