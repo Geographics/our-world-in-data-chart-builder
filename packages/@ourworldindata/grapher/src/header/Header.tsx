@@ -17,7 +17,7 @@ import {
     GRAPHER_FRAME_PADDING_HORIZONTAL,
     GRAPHER_FRAME_PADDING_VERTICAL,
 } from "../core/GrapherConstants"
-import { GRAPHER_DARK_TEXT } from "../color/ColorConstants"
+import { GRAPHER_LIGHT_TEXT, GRAY_90 } from "../color/ColorConstants"
 
 interface HeaderProps {
     manager: HeaderManager
@@ -316,7 +316,11 @@ export class StaticHeader extends Header<StaticHeaderProps> {
                         rel="noopener"
                     >
                         {title.render(x, y, {
-                            textProps: { fill: GRAPHER_DARK_TEXT },
+                            textProps: {
+                                fill: this.manager.isSocialMediaExport
+                                    ? "#2d2e2d"
+                                    : GRAY_90,
+                            },
                         })}
                     </a>
                 )}
@@ -329,9 +333,7 @@ export class StaticHeader extends Header<StaticHeaderProps> {
                                 : 0),
                         {
                             id: makeIdForHumanConsumption("subtitle"),
-                            textProps: {
-                                fill: manager.secondaryColorInStaticCharts,
-                            },
+                            textProps: { fill: GRAPHER_LIGHT_TEXT },
                             detailsMarker: this.manager.detailsMarkerInSvg,
                         }
                     )}

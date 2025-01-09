@@ -19,8 +19,8 @@ import { ActionButtons } from "../controls/ActionButtons"
 import {
     BASE_FONT_SIZE,
     GRAPHER_FRAME_PADDING_HORIZONTAL,
+    GRAPHER_LIGHT_TEXT,
 } from "../core/GrapherConstants"
-import { GRAPHER_DARK_TEXT } from "../color/ColorConstants"
 
 /*
 
@@ -640,7 +640,7 @@ export class StaticFooter extends Footer<StaticFooterProps> {
     componentWillUnmount(): void {}
 
     @computed private get textColor(): string {
-        return this.manager.secondaryColorInStaticCharts ?? GRAPHER_DARK_TEXT
+        return GRAPHER_LIGHT_TEXT
     }
 
     @computed protected get showLicenseNextToSources(): boolean {
@@ -752,7 +752,6 @@ export class StaticFooter extends Footer<StaticFooterProps> {
             licenseAndOriginUrl,
             showLicenseNextToSources,
             maxWidth,
-            textColor,
         } = this
         const { targetX, targetY } = this.props
 
@@ -760,9 +759,7 @@ export class StaticFooter extends Footer<StaticFooterProps> {
             <g
                 id={makeIdForHumanConsumption("footer")}
                 className="SourcesFooter"
-                style={{
-                    fill: textColor,
-                }}
+                style={{ fill: this.textColor }}
             >
                 {sources.renderSVG(targetX, targetY, {
                     id: makeIdForHumanConsumption("sources"),
