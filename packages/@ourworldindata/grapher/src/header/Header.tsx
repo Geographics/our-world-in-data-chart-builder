@@ -107,13 +107,15 @@ export class Header<
                 fontSize,
             })
 
-        const initialFontSize = this.useBaseFontSize
-            ? (22 / BASE_FONT_SIZE) * this.baseFontSize
-            : this.manager.isNarrow
-              ? 18
-              : this.manager.isMedium
-                ? 20
-                : 24
+        const initialFontSize = this.manager.isStaticAndSmall
+            ? 25
+            : this.useBaseFontSize
+              ? (25 / BASE_FONT_SIZE) * this.baseFontSize
+              : this.manager.isNarrow
+                ? 18
+                : this.manager.isMedium
+                  ? 20
+                  : 24
 
         let title = makeTitle(initialFontSize)
 
@@ -174,8 +176,9 @@ export class Header<
     }
 
     @computed get subtitleFontSize(): number {
+        if (this.manager.isStaticAndSmall) return 16
         if (this.useBaseFontSize) {
-            return (13 / BASE_FONT_SIZE) * this.baseFontSize
+            return (15 / BASE_FONT_SIZE) * this.baseFontSize
         }
         return this.manager.isSmall ? 12 : this.manager.isMedium ? 13 : 14
     }
