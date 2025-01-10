@@ -1,11 +1,7 @@
-import { useMemo, useEffect } from "react"
+import { useMemo } from "react"
 import {
     FetchingGrapher,
-    fetchInputTableForConfig,
-    Grapher,
     GrapherProgrammaticInterface,
-    GrapherState,
-    MapChart,
 } from "@ourworldindata/grapher"
 import {
     REUSE_THIS_WORK_SECTION_ID,
@@ -64,6 +60,8 @@ export const DataPageV2Content = ({
             ...grapherConfig,
             isEmbeddedInADataPage: true,
             bindUrlToWindow: true,
+            adminBaseUrl: ADMIN_BASE_URL,
+            bakedGrapherURL: BAKED_GRAPHER_URL,
         }),
         [grapherConfig]
     )
@@ -105,8 +103,6 @@ export const DataPageV2Content = ({
                     <FetchingGrapher
                         config={mergedGrapherConfig}
                         dataApiUrl={DATA_API_URL}
-                        adminBaseUrl={ADMIN_BASE_URL}
-                        bakedGrapherURL={BAKED_GRAPHER_URL}
                     />
                 </div>
                 <div className="DataPageContent grid grid-cols-12-full-width">
@@ -141,6 +137,8 @@ export const DataPageV2Content = ({
                             {grapherConfig.slug && (
                                 <GrapherWithFallback
                                     slug={grapherConfig.slug}
+                                    config={mergedGrapherConfig}
+                                    id="explore-the-data"
                                 />
                             )}
                             <AboutThisData
