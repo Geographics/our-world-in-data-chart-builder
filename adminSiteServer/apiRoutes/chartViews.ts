@@ -54,7 +54,7 @@ const createPatchConfigAndQueryParamsForChartView = async (
         ...pick(fullConfigIncludingDefaults, CHART_VIEW_PROPS_TO_PERSIST),
     }
 
-    const queryParams = grapherConfigToQueryParams(config)
+    const queryParams = grapherConfigToQueryParams(patchConfigToSave)
 
     const fullConfig = mergeGrapherConfigs(parentChartConfig, patchConfigToSave)
     return { patchConfig: patchConfigToSave, fullConfig, queryParams }
@@ -178,6 +178,16 @@ export async function createChartView(
     const rawConfig = req.body.config as GrapherInterface
     if (!name || !parentChartId || !rawConfig) {
         throw new JsonError("Invalid request", 400)
+    }
+    const chartViewWithName = await trx
+        .table(ChartViewsTableName)
+        .where({ name })
+        .first()
+    if (chartViewWithName) {
+        return {
+            success: false,
+            errorMsg: `Narrative chart with name "${name}" already exists`,
+        }
     }
 
     const { patchConfig, fullConfig, queryParams } =
