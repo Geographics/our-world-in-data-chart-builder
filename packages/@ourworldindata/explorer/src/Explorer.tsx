@@ -493,7 +493,6 @@ export class Explorer
         if (this.grapher) {
             this.grapher.grapherState.inputTable =
                 this.inputTableTransformer(table)
-            this.grapher.appendNewEntitySelectionOptions()
         }
     }
 
