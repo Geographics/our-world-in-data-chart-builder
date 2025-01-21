@@ -3164,7 +3164,7 @@ export class Grapher
         if (this.isStaticAndSmall) {
             return this.computeBaseFontSizeFromHeight(this.staticBounds)
         }
-        if (this.isStatic) return 18
+        if (this.isStatic) return 16
         return this._baseFontSize
     }
 
