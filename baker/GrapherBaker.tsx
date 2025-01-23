@@ -57,7 +57,10 @@ import { logErrorAndMaybeCaptureInSentry } from "../serverUtils/errorLog.js"
 
 import { getTagToSlugMap } from "./GrapherBakingUtils.js"
 import { knexRaw } from "../db/db.js"
-import { getRelatedChartsForVariable } from "../db/model/Chart.js"
+import {
+    getRelatedChartsForVariable,
+    getRelatedChartsForChart,
+} from "../db/model/Chart.js"
 import pMap from "p-map"
 
 const renderDatapageIfApplicable = async (
@@ -193,11 +196,18 @@ export async function renderDataPageV2(
 
     // Get the charts this variable is being used in (aka "related charts")
     // and exclude the current chart to avoid duplicates
-    datapageData.allCharts = await getRelatedChartsForVariable(
-        knex,
-        variableId,
-        grapher && "id" in grapher ? [grapher.id as number] : []
-    )
+    if (grapher && "id" in grapher) {
+        datapageData.allCharts = await getRelatedChartsForChart(
+            knex,
+            grapher.id as number
+        )
+    } else {
+        datapageData.allCharts = await getRelatedChartsForVariable(
+            knex,
+            variableId,
+            []
+        )
+    }
 
     datapageData.relatedResearch =
         await getRelatedResearchAndWritingForVariables(knex, [variableId])
