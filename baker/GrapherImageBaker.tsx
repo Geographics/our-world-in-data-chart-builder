@@ -41,9 +41,7 @@ export async function bakeGrapherToSvgAndPng(
     if (optimizeSvgs) svgCode = await optimizeSvg(svgCode)
 
     return Promise.all([
-        fs
-            .writeFile(`${outPath}.svg`, svgCode)
-            .then(() => console.log(`${outPath}.svg`)),
+        fs.writeFile(`${outPath}.svg`, svgCode),
         sharp(Buffer.from(grapher.staticSVG), { density: 144 })
             .png()
             .resize(grapher.defaultBounds.width, grapher.defaultBounds.height)
