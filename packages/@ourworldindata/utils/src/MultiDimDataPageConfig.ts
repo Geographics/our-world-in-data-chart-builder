@@ -217,3 +217,27 @@ export const extractMultiDimChoicesFromQueryStr = (
 
     return dimensionChoices
 }
+
+export function searchParamsToMultiDimView(
+    config: MultiDimDataPageConfigEnriched,
+    searchParams: URLSearchParams
+): ViewEnriched {
+    const mdimConfig = MultiDimDataPageConfig.fromObject(config)
+    let dimensions: MultiDimDimensionChoices
+    if (searchParams.size > 0) {
+        dimensions = extractMultiDimChoicesFromQueryStr(
+            searchParams.toString(),
+            mdimConfig
+        )
+    } else {
+        // Get the default dimensions.
+        dimensions = mdimConfig.filterToAvailableChoices({}).selectedChoices
+    }
+    const view = mdimConfig.findViewByDimensions(dimensions)
+    if (!view) {
+        throw new Error(
+            `No view found for dimensions ${JSON.stringify(dimensions)}`
+        )
+    }
+    return view
+}
