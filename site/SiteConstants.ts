@@ -7,7 +7,7 @@ import {
     faLinkedin,
     faBluesky,
 } from "@fortawesome/free-brands-svg-icons"
-import { CategoryWithEntries, SubNavId } from "@ourworldindata/types"
+import { SubNavId } from "@ourworldindata/types"
 
 // See https://cdnjs.cloudflare.com/polyfill/ for a list of all supported features
 const polyfillFeatures = [
