@@ -168,17 +168,6 @@ export function getShortPageCitation(
     })} (${publishedAt?.getFullYear()}) - “${title}”`
 }
 
-export const allTopicsInCategory = (
-    category: CategoryWithEntries
-): EntryMeta[] => {
-    return [
-        ...category.entries,
-        ...(category.subcategories ?? []).flatMap(
-            (subcategory) => subcategory.entries
-        ),
-    ]
-}
-
 export const getSubnavItem = (
     id: string | undefined,
     subnavItems: SubnavItem[]
