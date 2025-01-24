@@ -58,6 +58,7 @@ import { logErrorAndMaybeCaptureInSentry } from "../serverUtils/errorLog.js"
 import { getTagToSlugMap } from "./GrapherBakingUtils.js"
 import { knexRaw } from "../db/db.js"
 import { getRelatedChartsForVariable } from "../db/model/Chart.js"
+import { getAllMultiDimDataPageSlugs } from "../db/model/MultiDimDataPage.js"
 import pMap from "p-map"
 
 const renderDatapageIfApplicable = async (
@@ -308,7 +309,6 @@ const bakeGrapherPageAndVariablesPngAndSVGIfChanged = async (
             imageMetadataDictionary
         )
     )
-    console.log(outPath)
 
     const variableIds = lodash.uniq(
         grapher.dimensions?.map((d) => d.variableId)
@@ -411,7 +411,6 @@ export const bakeAllChangedGrapherPagesVariablesPngSvgAndDeleteRemovedGraphers =
                 `
         )
 
-        const newSlugs = chartsToBake.map((row) => row.slug)
         await fs.mkdirp(bakedSiteDir + "/grapher")
 
         // Prefetch imageMetadata instead of each grapher page fetching
@@ -432,7 +431,7 @@ export const bakeAllChangedGrapherPagesVariablesPngSvgAndDeleteRemovedGraphers =
         )
 
         const progressBar = new ProgressBar(
-            "bake grapher page [:bar] :current/:total :elapseds :rate/s :etas :name\n",
+            "bake grapher page [:bar] :current/:total :elapseds :rate/s :name\n",
             {
                 width: 20,
                 total: chartsToBake.length + 1,
@@ -451,11 +450,18 @@ export const bakeAllChangedGrapherPagesVariablesPngSvgAndDeleteRemovedGraphers =
                     async (knex) => await bakeSingleGrapherChart(job, knex),
                     db.TransactionCloseMode.KeepOpen
                 )
-                progressBar.tick({ name: `slug ${job.slug}` })
+                progressBar.tick({ name: job.slug })
             },
             { concurrency: 10 }
         )
 
-        await deleteOldGraphers(bakedSiteDir, excludeUndefined(newSlugs))
+        // Multi-dim data pages are baked into the same directory as graphers
+        // and they are handled separately.
+        const multiDimSlugs = await getAllMultiDimDataPageSlugs(knex)
+        const newSlugs = excludeUndefined([
+            ...chartsToBake.map((row) => row.slug),
+            ...multiDimSlugs,
+        ])
+        await deleteOldGraphers(bakedSiteDir, newSlugs)
         progressBar.tick({ name: `✅ Deleted old graphers` })
     }

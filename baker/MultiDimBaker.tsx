@@ -1,5 +1,7 @@
+import { glob } from "glob"
 import fs from "fs-extra"
 import path from "path"
+import ProgressBar from "progress"
 import {
     ImageMetadata,
     MultiDimDataPageConfigPreProcessed,
@@ -32,8 +34,10 @@ import {
     resolveFaqsForVariable,
 } from "./DatapageHelpers.js"
 import { logErrorAndMaybeCaptureInSentry } from "../serverUtils/errorLog.js"
+import { getAllPublishedChartSlugs } from "../db/model/Chart.js"
 import {
     getAllMultiDimDataPages,
+    getAllPublishedMultiDimDataPageSlugs,
     getMultiDimDataPageBySlug,
 } from "../db/model/MultiDimDataPage.js"
 
@@ -219,12 +223,42 @@ export const bakeMultiDimDataPage = async (
     await fs.writeFile(outPath, renderedHtml)
 }
 
+async function deleteOldMultiDimPages(
+    bakedSiteDir: string,
+    newSlugs: Set<string>
+) {
+    const oldSlugs = new Set(
+        glob
+            .sync(`${bakedSiteDir}/grapher/*.html`)
+            .map((slug) =>
+                slug
+                    .replace(`${bakedSiteDir}/grapher/`, "")
+                    .replace(".html", "")
+            )
+    )
+    const toRemove = oldSlugs.difference(newSlugs)
+    for (const slug of toRemove) {
+        console.log(`DELETING ${slug}`)
+        const path = `${bakedSiteDir}/grapher/${slug}.html`
+        await fs.unlink(path)
+        console.log(path)
+    }
+}
+
 export const bakeAllMultiDimDataPages = async (
     knex: db.KnexReadonlyTransaction,
     bakedSiteDir: string,
     imageMetadata: Record<string, ImageMetadata>
 ) => {
     const multiDimsBySlug = await getAllMultiDimDataPages(knex)
+    const progressBar = new ProgressBar(
+        "bake multi-dim page [:bar] :current/:total :elapseds :rate/s :name\n",
+        {
+            width: 20,
+            total: multiDimsBySlug.size + 1,
+            renderThrottle: 0,
+        }
+    )
     for (const [slug, row] of multiDimsBySlug.entries()) {
         await bakeMultiDimDataPage(
             knex,
@@ -233,5 +267,11 @@ export const bakeAllMultiDimDataPages = async (
             row.config,
             imageMetadata
         )
+        progressBar.tick({ name: slug })
     }
+    const publishedSlugs = await getAllPublishedMultiDimDataPageSlugs(knex)
+    const chartSlugs = await getAllPublishedChartSlugs(knex)
+    const newSlugs = new Set([...publishedSlugs, ...chartSlugs])
+    await deleteOldMultiDimPages(bakedSiteDir, newSlugs)
+    progressBar.tick({ name: `✅ Deleted old multi-dim pages` })
 }

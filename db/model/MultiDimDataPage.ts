@@ -84,6 +84,24 @@ export async function getAllLinkedPublishedMultiDimDataPages(
     return rows.map(enrichRow)
 }
 
+export async function getAllMultiDimDataPageSlugs(
+    knex: KnexReadonlyTransaction
+): Promise<string[]> {
+    const rows = await knex<DbPlainMultiDimDataPage>(
+        MultiDimDataPagesTableName
+    ).select("slug")
+    return rows.map((row) => row.slug)
+}
+
+export async function getAllPublishedMultiDimDataPageSlugs(
+    knex: KnexReadonlyTransaction
+): Promise<string[]> {
+    const rows = await knex<DbPlainMultiDimDataPage>(MultiDimDataPagesTableName)
+        .select("slug")
+        .where({ published: true })
+    return rows.map((row) => row.slug)
+}
+
 export const getMultiDimDataPageBySlug = async (
     knex: KnexReadonlyTransaction,
     slug: string,
