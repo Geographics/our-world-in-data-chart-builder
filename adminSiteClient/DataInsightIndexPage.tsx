@@ -1,3 +1,5 @@
+/* eslint-disable react/prop-types */
+
 import { useContext, useEffect, useMemo, useState } from "react"
 import * as React from "react"
 import * as Figma from "figma-api"
