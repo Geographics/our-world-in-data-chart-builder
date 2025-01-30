@@ -1,10 +1,27 @@
+/* eslint-disable react/prop-types */
+
 import { useContext, useEffect, useMemo, useState } from "react"
 import * as React from "react"
-import { Button, Card, Flex, Input, Radio, Select, Space, Table } from "antd"
+import * as Figma from "figma-api"
+import {
+    Button,
+    Card,
+    Flex,
+    Input,
+    Modal,
+    notification,
+    Radio,
+    Select,
+    Space,
+    Table,
+} from "antd"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import {
+    faCheck,
     faCopy,
     faPen,
+    faSpinner,
+    faUpload,
     faUpRightFromSquare,
 } from "@fortawesome/free-solid-svg-icons"
 import { faFigma } from "@fortawesome/free-brands-svg-icons"
@@ -16,17 +33,56 @@ import {
     buildSearchWordsFromSearchString,
     filterFunctionForSearchWords,
     highlightFunctionForSearchWords,
-    SearchWord,
 } from "../adminShared/search.js"
-import { DbPlainTag, OwidGdocDataInsightIndexItem } from "@ourworldindata/types"
+import {
+    DbEnrichedImageWithUserId,
+    DbPlainTag,
+    OwidGdocDataInsightIndexItem,
+} from "@ourworldindata/types"
 import {
     copyToClipboard,
     dayjs,
     RequiredBy,
     startCase,
 } from "@ourworldindata/utils"
-import { CLOUDFLARE_IMAGES_URL } from "../settings/clientSettings.js"
+import {
+    CLOUDFLARE_IMAGES_URL,
+    ENV,
+    GRAPHER_DYNAMIC_THUMBNAIL_URL,
+    FIGMA_API_TOKEN,
+} from "../settings/clientSettings.js"
 import { AdminAppContext } from "./AdminAppContext.js"
+import { Admin } from "./Admin.js"
+import { ImageUploadResponse } from "./imagesHelpers.js"
+import { ReuploadImageForDataInsightModal } from "./ReuploadImageForDataInsightModal.js"
+
+type NarrativeDataInsightIndexItem = RequiredBy<
+    OwidGdocDataInsightIndexItem,
+    "image" | "narrativeChart"
+>
+type FigmaDataInsightIndexItem = RequiredBy<
+    OwidGdocDataInsightIndexItem,
+    "image" | "figmaUrl"
+>
+
+type DataInsightIndexItemThatCanBeUploaded =
+    | NarrativeDataInsightIndexItem
+    | FigmaDataInsightIndexItem
+
+type FigmaUploadImageProps = {
+    mode: "figma"
+    dataInsight: FigmaDataInsightIndexItem
+    imageUrl?: string
+}
+type NarrativeChartUploadImageProps = {
+    mode: "narrative-chart"
+    dataInsight: NarrativeDataInsightIndexItem
+}
+type UploadImageProps = FigmaUploadImageProps | NarrativeChartUploadImageProps
+
+type FigmaResponse =
+    | { success: true; imageUrl: string }
+    | { success: false; errorMessage: string }
 
 type PublicationFilter = "all" | "published" | "scheduled" | "draft"
 type Layout = "list" | "gallery"
@@ -36,13 +92,25 @@ const DEFAULT_LAYOUT: Layout = "list"
 
 const editIcon = <FontAwesomeIcon icon={faPen} size="sm" />
 const linkIcon = <FontAwesomeIcon icon={faUpRightFromSquare} size="sm" />
+const uploadIcon = <FontAwesomeIcon icon={faUpload} size="sm" />
+const spinnerIcon = <FontAwesomeIcon icon={faSpinner} spin />
 const figmaIcon = <FontAwesomeIcon icon={faFigma} size="sm" />
 const copyIcon = <FontAwesomeIcon icon={faCopy} size="sm" />
+const checkIcon = <FontAwesomeIcon icon={faCheck} />
+
+const NotificationContext = React.createContext(null)
+
+const figmaApi = new Figma.Api({
+    personalAccessToken: FIGMA_API_TOKEN,
+})
 
 function createColumns(ctx: {
     highlightFn: (
         text: string | null | undefined
     ) => React.ReactElement | string
+    triggerImageUploadFlow: (
+        dataInsight: DataInsightIndexItemThatCanBeUploaded
+    ) => void
 }): ColumnsType<OwidGdocDataInsightIndexItem> {
     return [
         {
@@ -206,6 +274,16 @@ function createColumns(ctx: {
                             Edit narrative chart
                         </Button>
                     )}
+                    {canReuploadImage(dataInsight) && (
+                        <Button
+                            icon={uploadIcon}
+                            onClick={() =>
+                                ctx.triggerImageUploadFlow(dataInsight)
+                            }
+                        >
+                            Reupload image
+                        </Button>
+                    )}
                 </Space>
             ),
         },
@@ -218,10 +296,17 @@ export function DataInsightIndexPage() {
     const [dataInsights, setDataInsights] = useState<
         OwidGdocDataInsightIndexItem[]
     >([])
+
     const [searchValue, setSearchValue] = useState("")
     const [publicationFilter, setPublicationFilter] =
         useState<PublicationFilter>(DEFAULT_PUBLICATION_FILTER)
     const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT)
+
+    const [dataInsightForImageUpload, setDataInsightForImageUpload] =
+        useState<DataInsightIndexItemThatCanBeUploaded>()
+
+    const [notificationApi, notificationContextHolder] =
+        notification.useNotification()
 
     const searchWords = useMemo(
         () => buildSearchWordsFromSearchString(searchValue),
@@ -264,96 +349,152 @@ export function DataInsightIndexPage() {
         return dataInsights.filter(publicationFilterFn).filter(searchFilterFn)
     }, [dataInsights, publicationFilter, searchWords])
 
+    const highlightFn = useMemo(
+        () => highlightFunctionForSearchWords(searchWords),
+        [searchWords]
+    )
+
+    const columns = useMemo(() => {
+        const triggerImageUploadFlow = (
+            dataInsight: DataInsightIndexItemThatCanBeUploaded
+        ) => setDataInsightForImageUpload(dataInsight)
+
+        return createColumns({
+            highlightFn,
+            triggerImageUploadFlow,
+        })
+    }, [highlightFn])
+
+    const updateDataInsightPreview = (
+        dataInsightId: string,
+        uploadedImage: DbEnrichedImageWithUserId
+    ) => {
+        setDataInsights((dataInsights) =>
+            dataInsights.map((dataInsight) =>
+                dataInsight.id === dataInsightId
+                    ? {
+                          ...dataInsight,
+                          image: dataInsight.image
+                              ? {
+                                    ...dataInsight.image,
+                                    filename: uploadedImage.filename!,
+                                    cloudflareId: uploadedImage.cloudflareId!,
+                                    originalWidth: uploadedImage.originalWidth!,
+                                }
+                              : undefined,
+                      }
+                    : dataInsight
+            )
+        )
+    }
+
+    const onImageUploadComplete = async (
+        dataInsightId: string,
+        response: ImageUploadResponse
+    ) => {
+        if (response.success) {
+            updateDataInsightPreview(dataInsightId, response.image)
+
+            notificationApi.info({
+                message: "Image replaced!",
+                description:
+                    "Make sure you update the alt text if your revision has substantive changes",
+                placement: "bottomRight",
+            })
+        } else {
+            notificationApi.warning({
+                message: "Image upload failed",
+                description: response?.errorMessage,
+                placement: "bottomRight",
+            })
+        }
+    }
+
     useEffect(() => {
         const fetchAllDataInsights = async () =>
             (await admin.getJSON(
                 "/api/dataInsights"
             )) as OwidGdocDataInsightIndexItem[]
 
-        void fetchAllDataInsights().then((dataInsights) =>
+        void fetchAllDataInsights().then((dataInsights) => {
             setDataInsights(dataInsights)
-        )
+        })
     }, [admin])
 
     return (
         <AdminLayout title="Data insights">
-            <main className="DataInsightIndexPage">
-                <Flex justify="space-between">
-                    <Flex gap="small">
-                        <Input
-                            placeholder="Search"
-                            value={searchValue}
-                            onChange={(e) => setSearchValue(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Escape") setSearchValue("")
-                            }}
-                            style={{ width: 500, marginBottom: 20 }}
-                        />
-                        <Select
-                            value={publicationFilter}
-                            options={[
-                                { value: "all", label: "All" },
-                                { value: "draft", label: "Drafts" },
-                                { value: "published", label: "Published" },
-                                { value: "scheduled", label: "Scheduled" },
-                            ]}
-                            onChange={(value: PublicationFilter) =>
-                                setPublicationFilter(value)
-                            }
-                            popupMatchSelectWidth={false}
-                        />
-                        <Button
-                            type="dashed"
-                            onClick={() => {
-                                setSearchValue("")
-                                setPublicationFilter(DEFAULT_PUBLICATION_FILTER)
-                            }}
+            <NotificationContext.Provider value={null}>
+                {notificationContextHolder}
+                <main className="DataInsightIndexPage">
+                    <Flex justify="space-between">
+                        <Flex gap="small">
+                            <Input
+                                placeholder="Search"
+                                value={searchValue}
+                                onChange={(e) => setSearchValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Escape") setSearchValue("")
+                                }}
+                                style={{ width: 500, marginBottom: 20 }}
+                            />
+                            <Select
+                                value={publicationFilter}
+                                options={[
+                                    { value: "all", label: "All" },
+                                    { value: "draft", label: "Drafts" },
+                                    { value: "published", label: "Published" },
+                                    { value: "scheduled", label: "Scheduled" },
+                                ]}
+                                onChange={(value: PublicationFilter) =>
+                                    setPublicationFilter(value)
+                                }
+                                popupMatchSelectWidth={false}
+                            />
+                            <Button
+                                type="dashed"
+                                onClick={() => {
+                                    setSearchValue("")
+                                    setPublicationFilter(
+                                        DEFAULT_PUBLICATION_FILTER
+                                    )
+                                }}
+                            >
+                                Reset
+                            </Button>
+                        </Flex>
+                        <Radio.Group
+                            defaultValue="list"
+                            onChange={(e) => setLayout(e.target.value)}
                         >
-                            Reset
-                        </Button>
+                            <Radio.Button value="list">List</Radio.Button>
+                            <Radio.Button value="gallery">Gallery</Radio.Button>
+                        </Radio.Group>
                     </Flex>
-                    <Radio.Group
-                        defaultValue="list"
-                        onChange={(e) => setLayout(e.target.value)}
-                    >
-                        <Radio.Button value="list">List</Radio.Button>
-                        <Radio.Button value="gallery">Gallery</Radio.Button>
-                    </Radio.Group>
-                </Flex>
-                {layout === "list" && (
-                    <DataInsightList
-                        dataInsights={filteredDataInsights}
-                        searchWords={searchWords}
-                    />
-                )}
-                {layout === "gallery" && (
-                    <DataInsightGallery dataInsights={filteredDataInsights} />
-                )}
-            </main>
+                    {layout === "list" && (
+                        <Table
+                            columns={columns}
+                            dataSource={filteredDataInsights}
+                            rowKey={(dataInsight) => dataInsight.id}
+                        />
+                    )}
+                    {layout === "gallery" && (
+                        <DataInsightGallery
+                            dataInsights={filteredDataInsights}
+                        />
+                    )}
+                    {dataInsightForImageUpload && (
+                        <UploadImageModal
+                            admin={admin}
+                            dataInsight={dataInsightForImageUpload}
+                            onUploadComplete={onImageUploadComplete}
+                            closeModal={() =>
+                                setDataInsightForImageUpload(undefined)
+                            }
+                        />
+                    )}
+                </main>
+            </NotificationContext.Provider>
         </AdminLayout>
-    )
-}
-
-function DataInsightList({
-    dataInsights,
-    searchWords,
-}: {
-    dataInsights: OwidGdocDataInsightIndexItem[]
-    searchWords: SearchWord[]
-}) {
-    const highlightFn = useMemo(
-        () => highlightFunctionForSearchWords(searchWords),
-        [searchWords]
-    )
-
-    const columns = useMemo(() => createColumns({ highlightFn }), [highlightFn])
-
-    return (
-        <Table
-            columns={columns}
-            dataSource={dataInsights}
-            rowKey={(dataInsight) => dataInsight.id}
-        />
     )
 }
 
@@ -423,6 +564,118 @@ function DataInsightCard({
     )
 }
 
+interface UploadImageModalProps<
+    DataInsightIndexItem = DataInsightIndexItemThatCanBeUploaded,
+> {
+    admin: Admin
+    dataInsight: DataInsightIndexItem
+    onUploadComplete: (
+        dataInsightId: string,
+        response: ImageUploadResponse
+    ) => void
+    closeModal: () => void
+}
+
+function UploadImageModal(props: UploadImageModalProps) {
+    const { dataInsight, ...restProps } = props
+
+    // Prefer Figma over narrative charts if both are present
+    if (canReuploadFigmaImage(dataInsight)) {
+        return (
+            <UploadFigmaImageModal dataInsight={dataInsight} {...restProps} />
+        )
+    }
+
+    if (canReuploadNarrativeChartImage(dataInsight)) {
+        return (
+            <UploadNarrativeChartImageModal
+                dataInsight={dataInsight}
+                {...restProps}
+            />
+        )
+    }
+
+    return null
+}
+
+function UploadNarrativeChartImageModal({
+    admin,
+    dataInsight,
+    onUploadComplete,
+    closeModal,
+}: UploadImageModalProps<NarrativeDataInsightIndexItem>) {
+    const sourceUrl = makePngUrlForNarrativeChart(dataInsight)
+    const content = [
+        { keyword: "Data insight", value: dataInsight.title },
+        { keyword: "Narrative chart", value: dataInsight.narrativeChart.name },
+    ]
+
+    return (
+        <ReuploadImageForDataInsightModal
+            dataInsightId={dataInsight.id}
+            modalTitle="Upload narrative chart export as DI image"
+            admin={admin}
+            existingImage={dataInsight.image}
+            sourceUrl={sourceUrl}
+            content={content}
+            onUploadComplete={onUploadComplete}
+            closeModal={closeModal}
+        />
+    )
+}
+
+function UploadFigmaImageModal({
+    admin,
+    dataInsight,
+    onUploadComplete,
+    closeModal,
+}: UploadImageModalProps<FigmaDataInsightIndexItem>) {
+    const [figmaImageUrl, setFigmaImageUrl] = useState<string | undefined>()
+    const [isLoadingFigmaImageUrl, setIsLoadingFigmaImageUrl] = useState(false)
+    const [figmaLoadingError, setFigmaLoadingError] = useState<
+        string | undefined
+    >()
+
+    const content = [{ keyword: "Data insight", value: dataInsight.title }]
+
+    useEffect(() => {
+        const fetchFigmaImage = async () => {
+            setIsLoadingFigmaImageUrl(true)
+            try {
+                const response = await fetchFigmaProvidedImageUrl(
+                    dataInsight.figmaUrl
+                )
+                setFigmaImageUrl(
+                    response.success ? response.imageUrl : undefined
+                )
+                setFigmaLoadingError(
+                    !response.success ? response.errorMessage : undefined
+                )
+            } catch (error) {
+                if (error instanceof Error) setFigmaLoadingError(error.message)
+            } finally {
+                setIsLoadingFigmaImageUrl(false)
+            }
+        }
+        void fetchFigmaImage()
+    }, [dataInsight])
+
+    return (
+        <ReuploadImageForDataInsightModal
+            modalTitle="Upload Figma chart as DI image"
+            dataInsightId={dataInsight.id}
+            admin={admin}
+            existingImage={dataInsight.image}
+            sourceUrl={figmaImageUrl}
+            isLoadingSourceUrl={isLoadingFigmaImageUrl}
+            loadingSourceUrlError={figmaLoadingError}
+            content={content}
+            onUploadComplete={onUploadComplete}
+            closeModal={closeModal}
+        />
+    )
+}
+
 function hasNarrativeChart(
     dataInsight: OwidGdocDataInsightIndexItem
 ): dataInsight is RequiredBy<OwidGdocDataInsightIndexItem, "narrativeChart"> {
@@ -433,6 +686,84 @@ function hasImage(
     dataInsight: OwidGdocDataInsightIndexItem
 ): dataInsight is RequiredBy<OwidGdocDataInsightIndexItem, "image"> {
     return dataInsight.image !== undefined
+}
+
+function hasFigmaUrl(
+    dataInsight: OwidGdocDataInsightIndexItem
+): dataInsight is RequiredBy<OwidGdocDataInsightIndexItem, "figmaUrl"> {
+    return dataInsight.figmaUrl !== undefined
+}
+
+function canReuploadNarrativeChartImage(
+    dataInsight: OwidGdocDataInsightIndexItem
+): dataInsight is NarrativeDataInsightIndexItem {
+    return hasImage(dataInsight) && hasNarrativeChart(dataInsight)
+}
+
+function canReuploadFigmaImage(
+    dataInsight: OwidGdocDataInsightIndexItem
+): dataInsight is FigmaDataInsightIndexItem {
+    return hasImage(dataInsight) && hasFigmaUrl(dataInsight)
+}
+
+function canReuploadImage(
+    dataInsight: OwidGdocDataInsightIndexItem
+): dataInsight is DataInsightIndexItemThatCanBeUploaded {
+    return (
+        canReuploadNarrativeChartImage(dataInsight) ||
+        canReuploadFigmaImage(dataInsight)
+    )
+}
+
+async function fetchFigmaProvidedImageUrl(
+    figmaUrl: string
+): Promise<FigmaResponse> {
+    const { fileId, nodeId } = extractIdsFromFigmaUrl(figmaUrl) ?? {}
+    if (!fileId || !nodeId)
+        return {
+            success: false,
+            errorMessage:
+                "Invalid Figma URL. The provided URL should point to a Figma node.",
+        }
+
+    // Request the image URL from Figma
+    const imageMap = await figmaApi.getImages(
+        { file_key: fileId },
+        { ids: [nodeId], scale: 3 }
+    )
+    if (!imageMap || imageMap.err !== null)
+        return {
+            success: false,
+            errorMessage: "Failed to fetch image map from Figma",
+        }
+
+    // Grab the image URL from the image map
+    const imageUrl = imageMap.images[nodeId]
+    if (!imageUrl) {
+        return {
+            success: false,
+            errorMessage: "Figma's image map does not contain the image",
+        }
+    }
+
+    return {
+        success: true,
+        imageUrl: imageUrl,
+    }
+}
+
+function extractIdsFromFigmaUrl(
+    figmaUrl: string
+): { fileId: string; nodeId: string } | undefined {
+    const regex =
+        /figma\.com\/design\/(?<fileId>[^/]+).*[?&]node-id=(?<nodeId>[^&]+)/
+    const { groups } = figmaUrl.match(regex) ?? {}
+    if (groups) {
+        const fileId = groups.fileId
+        const nodeId = groups.nodeId.replace("-", ":")
+        return { fileId, nodeId }
+    }
+    return undefined
 }
 
 function makePreviewLink(dataInsight: OwidGdocDataInsightIndexItem) {
@@ -454,4 +785,15 @@ function makePreviewImageSrc(
 ) {
     const { cloudflareId, originalWidth } = dataInsight.image
     return `${CLOUDFLARE_IMAGES_URL}/${cloudflareId}/w=${originalWidth}`
+}
+
+function makePngUrlForNarrativeChart(
+    dataInsight: RequiredBy<OwidGdocDataInsightIndexItem, "narrativeChart">
+) {
+    return `${makeGrapherDynamicThumbnailUrl()}/by-uuid/${dataInsight.narrativeChart.chartConfigId}.png?imType=square`
+}
+
+function makeGrapherDynamicThumbnailUrl() {
+    if (ENV === "development") return "https://ourworldindata.org/grapher"
+    return GRAPHER_DYNAMIC_THUMBNAIL_URL
 }

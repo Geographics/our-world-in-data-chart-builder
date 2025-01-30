@@ -157,8 +157,8 @@ function extractDataInsightIndexItem(
         ? {
               id: dataInsight.imageId,
               filename: dataInsight.filename,
-              cloudflareId: dataInsight.cloudflareId,
-              originalWidth: dataInsight.originalWidth,
+              cloudflareId: dataInsight.cloudflareId!,
+              originalWidth: dataInsight.originalWidth!,
           }
         : undefined
 

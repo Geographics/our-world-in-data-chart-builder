@@ -1,4 +1,4 @@
-import { Component, Fragment } from "react"
+import { Component, Fragment, useEffect, useState } from "react"
 import { observer } from "mobx-react"
 import {
     ChartEditor,
@@ -6,7 +6,11 @@ import {
     isChartEditorInstance,
 } from "./ChartEditor.js"
 import { computed, action, observable, runInAction } from "mobx"
-import { BAKED_GRAPHER_URL } from "../settings/clientSettings.js"
+import {
+    BAKED_GRAPHER_URL,
+    ENV,
+    GRAPHER_DYNAMIC_THUMBNAIL_URL,
+} from "../settings/clientSettings.js"
 import { AdminAppContext, AdminAppContextType } from "./AdminAppContext.js"
 import {
     stringifyUnknownError,
@@ -26,6 +30,10 @@ import {
     ChartViewEditor,
     isChartViewEditorInstance,
 } from "./ChartViewEditor.js"
+import { Admin } from "./Admin.js"
+import { ReuploadImageForDataInsightModal } from "./ReuploadImageForDataInsightModal.js"
+import React from "react"
+import { ImageUploadResponse } from "./imagesHelpers.js"
 
 const BASE_URL = BAKED_GRAPHER_URL.replace(/^https?:\/\//, "")
 
@@ -45,127 +53,6 @@ export class EditorReferencesTab<
             return <EditorReferencesTabForChartView editor={editor} />
         else return null
     }
-}
-
-export const ReferencesSection = (props: {
-    references: References | undefined
-}) => {
-    const wpPosts = props.references?.postsWordpress?.length ? (
-        <>
-            {" "}
-            <p>Public wordpress pages that embed or reference this chart:</p>
-            <ul className="list-group">
-                {props.references.postsWordpress.map((post) => (
-                    <li key={post.id} className="list-group-item">
-                        <a href={post.url} target="_blank" rel="noopener">
-                            <strong>{post.title}</strong>
-                        </a>{" "}
-                        (
-                        <a
-                            href={`https://owid.cloud/wp/wp-admin/post.php?post=${post.id}&action=edit`}
-                            target="_blank"
-                            rel="noopener"
-                        >
-                            Edit
-                        </a>
-                        )
-                    </li>
-                ))}
-            </ul>
-        </>
-    ) : (
-        <></>
-    )
-    const gdocsPosts = props.references?.postsGdocs?.length ? (
-        <>
-            <p>Public gdocs pages that embed or reference this chart:</p>
-            <ul className="list-group">
-                {props.references.postsGdocs.map((post) => (
-                    <li key={post.id} className="list-group-item">
-                        <a href={post.url} target="_blank" rel="noopener">
-                            <strong>{post.title}</strong>
-                        </a>{" "}
-                        (
-                        <a
-                            href={`/admin/gdocs/${post.id}/preview`}
-                            target="_blank"
-                            rel="noopener"
-                        >
-                            Edit
-                        </a>
-                        )
-                    </li>
-                ))}
-            </ul>
-        </>
-    ) : (
-        <></>
-    )
-    const explorers = props.references?.explorers?.length ? (
-        <>
-            <p>Explorers that reference this chart:</p>
-            <ul className="list-group">
-                {props.references.explorers.map((explorer) => (
-                    <li key={explorer} className="list-group-item">
-                        <a
-                            href={`https://ourworldindata.org/explorers/${explorer}`}
-                            target="_blank"
-                            rel="noopener"
-                        >
-                            <strong>{explorer}</strong>
-                        </a>{" "}
-                        (
-                        <a
-                            href={`/admin/explorers/${explorer}`}
-                            target="_blank"
-                            rel="noopener"
-                        >
-                            Edit
-                        </a>
-                        )
-                    </li>
-                ))}
-            </ul>
-        </>
-    ) : (
-        <></>
-    )
-
-    const chartViews = !!props.references?.chartViews?.length && (
-        <>
-            <p>Narrative charts based on this chart</p>
-            <ul className="list-group">
-                {props.references.chartViews.map((chartView) => (
-                    <li key={chartView.id} className="list-group-item">
-                        <a
-                            href={`/admin/chartViews/${chartView.id}/edit`}
-                            target="_blank"
-                            rel="noopener"
-                        >
-                            <strong>{chartView.title}</strong>
-                        </a>
-                    </li>
-                ))}
-            </ul>
-        </>
-    )
-
-    return (
-        <>
-            <h5>References</h5>
-            {props.references &&
-            getFullReferencesCount(props.references) > 0 ? (
-                <>
-                    {wpPosts}
-                    {gdocsPosts}
-                    {explorers}
-                    {chartViews}
-                </>
-            ) : (
-                <p>No references found</p>
-            )}
-        </>
-    )
 }
 
 @observer
@@ -233,7 +120,22 @@ export class EditorReferencesTabForChart extends Component<{
                     </small>
                 </section>
                 <section>
-                    <ReferencesSection references={this.references} />
+                    <h5>References</h5>
+                    {this.references &&
+                    getFullReferencesCount(this.references) > 0 ? (
+                        <>
+                            <ReferencesWordpressPosts
+                                references={this.references}
+                            />
+                            <ReferencesGdocPosts references={this.references} />
+                            <ReferencesExplorers references={this.references} />
+                            <ReferencesChartViews
+                                references={this.references}
+                            />
+                        </>
+                    ) : (
+                        <p>No references found</p>
+                    )}
                 </section>
                 <section>
                     <h5>Alternative URLs for this chart</h5>
@@ -277,15 +179,39 @@ export class EditorReferencesTabForChart extends Component<{
 export class EditorReferencesTabForChartView extends Component<{
     editor: ChartViewEditor
 }> {
+    @computed get admin() {
+        return this.props.editor.manager.admin
+    }
+
     @computed get references() {
         return this.props.editor.references
+    }
+
+    @computed get chartViewConfigId() {
+        return this.props.editor.manager.idsAndName?.configId ?? ""
     }
 
     render() {
         return (
             <div>
                 <section>
-                    <ReferencesSection references={this.references} />
+                    <h5>References</h5>
+                    {this.references &&
+                    getFullReferencesCount(this.references) > 0 ? (
+                        <>
+                            <ReferencesWordpressPosts
+                                references={this.references}
+                            />
+                            <ReferencesGdocPosts references={this.references} />
+                            <ReferencesDataInsights
+                                references={this.references}
+                                admin={this.admin}
+                                chartViewConfigId={this.chartViewConfigId}
+                            />
+                        </>
+                    ) : (
+                        <p>No references found</p>
+                    )}
                 </section>
             </div>
         )
@@ -430,4 +356,187 @@ export class EditorReferencesTabForIndicator extends Component<{
             </Section>
         )
     }
+}
+
+const ReferencesWordpressPosts = (props: {
+    references: Pick<References, "postsWordpress">
+}) => {
+    if (!props.references.postsWordpress?.length) return null
+    return (
+        <>
+            <p>Public wordpress pages that embed or reference this chart:</p>
+            <ul className="list-group">
+                {props.references.postsWordpress.map((post) => (
+                    <li key={post.id} className="list-group-item">
+                        <a href={post.url} target="_blank" rel="noopener">
+                            <strong>{post.title}</strong>
+                        </a>{" "}
+                        (
+                        <a
+                            href={`https://owid.cloud/wp/wp-admin/post.php?post=${post.id}&action=edit`}
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            Edit
+                        </a>
+                        )
+                    </li>
+                ))}
+            </ul>
+        </>
+    )
+}
+
+const ReferencesGdocPosts = (props: {
+    references: Pick<References, "postsGdocs">
+}) => {
+    if (!props.references.postsGdocs?.length) return null
+    return (
+        <>
+            <p>Public gdocs pages that embed or reference this chart:</p>
+            <ul className="list-group">
+                {props.references.postsGdocs.map((post) => (
+                    <li key={post.id} className="list-group-item">
+                        <a href={post.url} target="_blank" rel="noopener">
+                            <strong>{post.title}</strong>
+                        </a>{" "}
+                        (
+                        <a
+                            href={`/admin/gdocs/${post.id}/preview`}
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            Edit
+                        </a>
+                        )
+                    </li>
+                ))}
+            </ul>
+        </>
+    )
+}
+
+const ReferencesExplorers = (props: {
+    references: Pick<References, "explorers">
+}) => {
+    if (!props.references.explorers?.length) return null
+    return (
+        <>
+            <p>Explorers that reference this chart:</p>
+            <ul className="list-group">
+                {props.references.explorers.map((explorer) => (
+                    <li key={explorer} className="list-group-item">
+                        <a
+                            href={`https://ourworldindata.org/explorers/${explorer}`}
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <strong>{explorer}</strong>
+                        </a>{" "}
+                        (
+                        <a
+                            href={`/admin/explorers/${explorer}`}
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            Edit
+                        </a>
+                        )
+                    </li>
+                ))}
+            </ul>
+        </>
+    )
+}
+
+const ReferencesChartViews = (props: {
+    references: Pick<References, "chartViews">
+}) => {
+    if (!props.references.chartViews?.length) return null
+    return (
+        <>
+            <p>Narrative charts based on this chart</p>
+            <ul className="list-group">
+                {props.references.chartViews.map((chartView) => (
+                    <li key={chartView.id} className="list-group-item">
+                        <a
+                            href={`/admin/chartViews/${chartView.id}/edit`}
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <strong>{chartView.title}</strong>
+                        </a>
+                    </li>
+                ))}
+            </ul>
+        </>
+    )
+}
+
+const ReferencesDataInsights = (props: {
+    references: Pick<References, "dataInsights">
+    admin: Admin
+    chartViewConfigId: string
+}) => {
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [imageUploadResponse, setImageUploadResponse] =
+        useState<ImageUploadResponse>()
+
+    if (!props.references.dataInsights?.length) return null
+
+    return (
+        <>
+            <p>Data insights based on this narrative chart</p>
+            <ul className="list-group">
+                {props.references.dataInsights.map((dataInsight) => {
+                    const canReuploadImage = dataInsight.image // && !dataInsight.figmaUrl
+                    return (
+                        <React.Fragment key={dataInsight.gdocId}>
+                            <li
+                                className="list-group-item"
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                }}
+                            >
+                                <a
+                                    href={`/admin/gdocs/${dataInsight.gdocId}/preview`}
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    <strong>{dataInsight.title}</strong>
+                                </a>
+                                {canReuploadImage && (
+                                    <button
+                                        onClick={() => setIsModalOpen(true)}
+                                    >
+                                        Upload static export as DI image
+                                    </button>
+                                )}
+                            </li>
+                            {isModalOpen && dataInsight.image && (
+                                <ReuploadImageForDataInsightModal
+                                    modalTitle="Upload static export as DI image"
+                                    dataInsightId={dataInsight.gdocId}
+                                    admin={props.admin}
+                                    existingImage={dataInsight.image}
+                                    sourceUrl={`${makeGrapherDynamicThumbnailUrl()}/by-uuid/${props.chartViewConfigId}.png?imType=square`}
+                                    closeModal={() => setIsModalOpen(false)}
+                                    onUploadComplete={(
+                                        _: string,
+                                        response: ImageUploadResponse
+                                    ) => setImageUploadResponse(response)}
+                                />
+                            )}
+                        </React.Fragment>
+                    )
+                })}
+            </ul>
+        </>
+    )
+}
+
+function makeGrapherDynamicThumbnailUrl() {
+    if (ENV === "development") return "https://ourworldindata.org/grapher"
+    return GRAPHER_DYNAMIC_THUMBNAIL_URL
 }
