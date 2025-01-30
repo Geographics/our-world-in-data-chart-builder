@@ -124,6 +124,7 @@ import {
     updateChart,
     deleteChart,
 } from "./apiRoutes/charts.js"
+import { getAllDataInsightIndexItems } from "./apiRoutes/dataInsights.js"
 
 const apiRouter = new FunctionalRouter()
 
@@ -243,6 +244,13 @@ getRouteNonIdempotentWithRWTransaction(
 putRouteWithRWTransaction(apiRouter, "/gdocs/:id", createOrUpdateGdoc)
 deleteRouteWithRWTransaction(apiRouter, "/gdocs/:id", deleteGdoc)
 postRouteWithRWTransaction(apiRouter, "/gdocs/:gdocId/setTags", setGdocTags)
+
+// Data insight routes
+getRouteWithROTransaction(
+    apiRouter,
+    "/dataInsights",
+    getAllDataInsightIndexItems
+)
 
 // Images routes
 getRouteNonIdempotentWithRWTransaction(
