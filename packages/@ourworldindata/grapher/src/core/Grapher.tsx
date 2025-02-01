@@ -114,6 +114,7 @@ import {
     GrapherTabOption,
     SeriesName,
     ChartViewInfo,
+    AssetMapEntry,
 } from "@ourworldindata/types"
 import {
     BlankOwidTable,
@@ -273,10 +274,11 @@ async function loadVariablesDataAdmin(
 
 async function loadVariablesDataSite(
     variableIds: number[],
-    dataApiUrl: string
+    dataApiUrl: string,
+    assetMap?: AssetMapEntry
 ): Promise<MultipleOwidVariableDataDimensionsMap> {
     const loadVariableDataPromises = variableIds.map((variableId) =>
-        loadVariableDataAndMetadata(variableId, dataApiUrl)
+        loadVariableDataAndMetadata(variableId, dataApiUrl, assetMap)
     )
     const variablesData: OwidVariableDataMetadataDimensions[] =
         await Promise.all(loadVariableDataPromises)
@@ -337,6 +339,7 @@ export interface GrapherProgrammaticInterface extends GrapherInterface {
         ChartViewInfo,
         "parentChartSlug" | "queryParamsForParentChart"
     >
+    runtimeAssetMap?: AssetMapEntry
 
     manager?: GrapherManager
     instanceRef?: React.RefObject<Grapher>
@@ -516,6 +519,8 @@ export class Grapher
         ChartViewInfo,
         "name" | "parentChartSlug" | "queryParamsForParentChart"
     > = undefined
+
+    runtimeAssetMap?: AssetMapEntry = this.props.runtimeAssetMap
 
     selection =
         this.manager?.selection ??
@@ -1153,7 +1158,8 @@ export class Grapher
         } else {
             variablesDataMap = await loadVariablesDataSite(
                 this.variableIds,
-                this.dataApiUrl
+                this.dataApiUrl,
+                this.runtimeAssetMap
             )
         }
         this.createPerformanceMeasurement("downloadVariablesData", startMark)

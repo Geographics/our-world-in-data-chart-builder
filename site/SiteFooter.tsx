@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome/index.js"
 import { faAngleRight } from "@fortawesome/free-solid-svg-icons"
-import { SiteFooterContext } from "@ourworldindata/utils"
+import { AssetMapEntry, SiteFooterContext } from "@ourworldindata/utils"
 import { viteAssetsForSite } from "./viteUtils.js"
 import { ScriptLoadErrorDetector } from "./NoJSDetector.js"
 import { RSS_FEEDS, SOCIALS } from "./SiteConstants.js"
@@ -12,6 +12,8 @@ interface SiteFooterProps {
     context?: SiteFooterContext
     debug?: boolean
     isPreviewing?: boolean
+    viteAssetMap?: AssetMapEntry
+    runtimeAssetMap?: AssetMapEntry
 }
 
 export const SiteFooter = (props: SiteFooterProps) => (
@@ -276,7 +278,7 @@ export const SiteFooter = (props: SiteFooterProps) => (
                 </div>
             </div>
             <div className="site-tools" />
-            {viteAssetsForSite().forFooter}
+            {viteAssetsForSite({ viteAssetMap: props.viteAssetMap }).forFooter}
             <ScriptLoadErrorDetector />
             <script
                 type="module"
@@ -286,6 +288,7 @@ export const SiteFooter = (props: SiteFooterProps) => (
                         debug: props.debug,
                         isPreviewing: props.isPreviewing,
                         hideDonationFlag: props.hideDonationFlag,
+                        runtimeAssetMap: props.runtimeAssetMap,
                     })})`, // todo: gotta be a better way.
                 }}
             />

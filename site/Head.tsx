@@ -1,7 +1,10 @@
 import { viteAssetsForSite } from "./viteUtils.js"
 import { GOOGLE_TAG_MANAGER_ID } from "../settings/clientSettings.js"
 import { NoJSDetector } from "./NoJSDetector.js"
-import { DEFAULT_THUMBNAIL_FILENAME } from "@ourworldindata/types"
+import {
+    AssetMapEntry,
+    DEFAULT_THUMBNAIL_FILENAME,
+} from "@ourworldindata/types"
 
 export const GTMScriptTags = ({ gtmId }: { gtmId: string }) => {
     if (!gtmId || /["']/.test(gtmId)) return null
@@ -42,6 +45,7 @@ export const Head = (props: {
         title: string
         href: string
     }
+    viteAssetMap?: AssetMapEntry
 }) => {
     const { canonicalUrl, hideCanonicalUrl, baseUrl } = props
     const pageTitle = props.pageTitle || `Our World in Data`
@@ -58,7 +62,9 @@ export const Head = (props: {
         href: "/atom.xml",
     }
 
-    const stylesheets = viteAssetsForSite().forHeader
+    const stylesheets = viteAssetsForSite({
+        viteAssetMap: props.viteAssetMap,
+    }).forHeader
 
     return (
         <head>

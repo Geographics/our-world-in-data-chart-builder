@@ -22,7 +22,12 @@ export {
     type QueryParams,
     R2GrapherConfigDirectory,
 } from "./domainTypes/Various.js"
-export { type BreadcrumbItem, type KeyValueProps } from "./domainTypes/Site.js"
+export {
+    type BreadcrumbItem,
+    type KeyValueProps,
+    type AssetMapEntry,
+    type AssetMap,
+} from "./domainTypes/Site.js"
 export {
     type FormattedPost,
     type IndexPost,

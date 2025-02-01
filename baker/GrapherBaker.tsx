@@ -33,6 +33,7 @@ import {
     DbPlainChart,
     DbRawChartConfig,
     DbEnrichedImage,
+    AssetMapEntry,
 } from "@ourworldindata/types"
 import ProgressBar from "progress"
 import {
@@ -58,7 +59,15 @@ const renderDatapageIfApplicable = async (
     grapher: GrapherInterface,
     isPreviewing: boolean,
     knex: db.KnexReadonlyTransaction,
-    imageMetadataDictionary?: Record<string, DbEnrichedImage>
+    {
+        imageMetadataDictionary,
+        viteAssetMap,
+        runtimeAssetMap,
+    }: {
+        imageMetadataDictionary?: Record<string, DbEnrichedImage>
+        viteAssetMap?: AssetMapEntry
+        runtimeAssetMap?: AssetMapEntry
+    } = {}
 ) => {
     const variable = await getVariableOfDatapageIfApplicable(grapher)
 
@@ -81,6 +90,8 @@ const renderDatapageIfApplicable = async (
             useIndicatorGrapherConfigs: false,
             pageGrapher: grapher,
             imageMetadataDictionary,
+            viteAssetMap,
+            runtimeAssetMap,
         },
         knex
     )
@@ -94,14 +105,21 @@ const renderDatapageIfApplicable = async (
 export const renderDataPageOrGrapherPage = async (
     grapher: GrapherInterface,
     knex: db.KnexReadonlyTransaction,
-    imageMetadataDictionary?: Record<string, DbEnrichedImage>
+    {
+        imageMetadataDictionary,
+        viteAssetMap,
+        runtimeAssetMap,
+    }: {
+        imageMetadataDictionary?: Record<string, DbEnrichedImage>
+        viteAssetMap?: AssetMapEntry
+        runtimeAssetMap?: AssetMapEntry
+    } = {}
 ): Promise<string> => {
-    const datapage = await renderDatapageIfApplicable(
-        grapher,
-        false,
-        knex,
-        imageMetadataDictionary
-    )
+    const datapage = await renderDatapageIfApplicable(grapher, false, knex, {
+        imageMetadataDictionary,
+        viteAssetMap,
+        runtimeAssetMap,
+    })
     if (datapage) return datapage
     return renderGrapherPage(grapher, knex)
 }
@@ -114,6 +132,8 @@ export async function renderDataPageV2(
         useIndicatorGrapherConfigs,
         pageGrapher,
         imageMetadataDictionary = {},
+        viteAssetMap,
+        runtimeAssetMap,
     }: {
         variableId: number
         variableMetadata: OwidVariableWithSource
@@ -121,6 +141,8 @@ export async function renderDataPageV2(
         useIndicatorGrapherConfigs: boolean
         pageGrapher?: GrapherInterface
         imageMetadataDictionary?: Record<string, ImageMetadata>
+        viteAssetMap?: AssetMapEntry
+        runtimeAssetMap?: AssetMapEntry
     },
     knex: db.KnexReadonlyTransaction
 ) {
@@ -217,6 +239,8 @@ export async function renderDataPageV2(
             imageMetadata={imageMetadata}
             faqEntries={faqEntries}
             tagToSlugMap={tagToSlugMap}
+            viteAssetMap={viteAssetMap}
+            runtimeAssetMap={runtimeAssetMap}
         />
     )
 }
@@ -260,6 +284,40 @@ const renderGrapherPage = async (
             baseGrapherUrl={BAKED_GRAPHER_URL}
         />
     )
+}
+
+export const bakeSingleGrapherPageForArchival = async (
+    bakedSiteDir: string,
+    grapher: GrapherInterface,
+    knex: db.KnexReadonlyTransaction,
+    {
+        imageMetadataDictionary,
+        viteAssetMap,
+        runtimeAssetMap,
+    }: {
+        imageMetadataDictionary?: Record<string, DbEnrichedImage>
+        viteAssetMap?: AssetMapEntry
+        runtimeAssetMap?: AssetMapEntry
+    } = {}
+) => {
+    const outPathHtml = `${bakedSiteDir}/grapher/${grapher.slug}.html`
+    await fs.writeFile(
+        outPathHtml,
+        await renderDataPageOrGrapherPage(grapher, knex, {
+            imageMetadataDictionary,
+            viteAssetMap,
+            runtimeAssetMap,
+        })
+    )
+    const outPathManifest = `${bakedSiteDir}/grapher/${grapher.slug}.manifest.json`
+
+    // TODO: right now, this only contains the asset maps. it may in the future also contain input
+    // hashes of the config and data files.
+    await fs.writeFile(
+        outPathManifest,
+        JSON.stringify({ viteAssetMap, runtimeAssetMap }, undefined, 2)
+    )
+    console.log(outPathHtml, outPathManifest)
 }
 
 const bakeGrapherPage = async (
